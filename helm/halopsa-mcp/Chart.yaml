@@ -1,0 +1,16 @@
+apiVersion: v2
+name: halopsa-mcp
+description: A Helm chart for HaloPSA MCP Server with OAuth authentication
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - halopsa
+  - mcp
+  - oauth
+  - dotnet
+maintainers:
+  - name: HaloPSA MCP Team
+home: https://github.com/yourusername/halopsa-mcp
+sources:
+  - https://github.com/yourusername/halopsa-mcp

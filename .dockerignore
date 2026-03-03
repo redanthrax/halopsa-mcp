@@ -1,0 +1,64 @@
+# Build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Secrets & Environment
+.env
+.env.*
+!.env.example
+data/
+*.json
+!appsettings.json
+!global.json
+!*.csproj
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Documentation (not needed in image)
+*.md
+!k8s/*.md
+!helm/*.md
+README.md
+CONTRIBUTING.md
+LICENSE
+CHANGELOG.md
+
+# Development files
+node_modules/
+*.log
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+
+# Test files
+tests/
+*.Test/
+*.Tests/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+!Dockerfile
+
+# Kubernetes (not needed in image)
+k8s/
+helm/

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "halopsa-mcp.fullname" . }}
+  labels:
+    {{- include "halopsa-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "halopsa-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "halopsa-mcp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "halopsa-mcp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.ports.http }}
+          protocol: TCP
+        env:
+        - name: HALOPSA_URL
+          value: {{ .Values.halopsa.url | quote }}
+        - name: HALOPSA_CLIENT_ID
+          value: {{ .Values.halopsa.clientId | quote }}
+        - name: AUTH_BASE_URL
+          value: {{ .Values.halopsa.authBaseUrl | quote }}
+        - name: HTTP_PORT
+          value: {{ .Values.ports.http | quote }}
+        - name: HALOPSA_TOKEN_STORE
+          value: {{ .Values.halopsa.tokenStorePath | quote }}
+        - name: HALOPSA_REDIRECT_URI
+          value: "{{ .Values.halopsa.authBaseUrl }}/callback"
+        {{- if .Values.halopsa.clientSecret }}
+        - name: HALOPSA_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "halopsa-mcp.fullname" . }}-secret
+              key: halopsa_client_secret
+        {{- end }}
+        volumeMounts:
+        - name: token-storage
+          mountPath: /app/data
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: token-storage
+        {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "halopsa-mcp.fullname" . }}-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

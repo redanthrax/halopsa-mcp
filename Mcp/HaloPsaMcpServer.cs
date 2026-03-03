@@ -65,7 +65,7 @@ internal class HaloPsaMcpTools {
             }
         }
         
-        if (string.IsNullOrEmpty(token)) {
+        if (string.IsNullOrEmpty(token) && context == null) {
             var userEntry = tokenStorage?.GetDefaultToken();
             if (userEntry != null) {
                 token = userEntry.AccessToken;
@@ -86,9 +86,9 @@ internal class HaloPsaMcpTools {
             DirectRefreshToken = refreshToken,
             DirectTokenExpiresAt = expiresAt,
             OnTokenRefreshed = (newToken, newRefresh, newExpiresAt) => {
-                var userEntry = tokenStorage?.GetToken(token);
-                if (userEntry != null && authService != null) {
-                    authService.InvalidateToken(token);
+                authService?.InvalidateToken(token);
+                if (tokenStorage != null) {
+                    _ = tokenStorage.UpdateTokenAsync(token, newToken, newRefresh, newExpiresAt);
                 }
             }
         };

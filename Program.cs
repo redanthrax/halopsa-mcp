@@ -55,16 +55,18 @@ if (isHttpMode) {
             options.ConfigureSessionOptions = async (httpContext, mcpOptions, cancellationToken) => {
                 // Extract Bearer token from Authorization header
                 var authHeader = httpContext.Request.Headers.Authorization.ToString();
-                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
+                if (string.IsNullOrEmpty(authHeader)
+                    || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
                     return; // No token, let middleware handle 401
                 }
 
                 var token = authHeader.Substring(7); // Remove "Bearer " prefix
 
                 // Validate token against HaloPSA and get user info
-                var authService = httpContext.RequestServices.GetRequiredService<McpAuthenticationService>();
-                var isValid = await authService.ValidateTokenAsync(token).ConfigureAwait(false);
+                var authService =
+                    httpContext.RequestServices.GetRequiredService<McpAuthenticationService>();
 
+                var isValid = await authService.ValidateTokenAsync(token).ConfigureAwait(false);
                 if (!isValid) {
                     return; // Invalid token, let middleware handle 401
                 }

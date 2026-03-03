@@ -1,13 +1,12 @@
+using System.Diagnostics;
 using HaloPsaMcp.Modules.Authentication.Endpoints;
 using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Middleware;
 
 /// <summary>
-/// Middleware to authenticate MCP requests using Bearer tokens
-/// Matches the TypeScript implementation's authentication flow
-/// 
-/// OAuth 2.1 Flow: Unauthenticated requests receive 401 with WWW-Authenticate header
+/// Middleware to authenticate MCP requests using Bearer tokens.
+/// OAuth 2.1 Flow: unauthenticated requests receive 401 with WWW-Authenticate header
 /// pointing to /.well-known/oauth-protected-resource for OAuth discovery.
 /// Claude Desktop will automatically follow the OAuth flow.
 /// </summary>
@@ -21,7 +20,8 @@ internal class McpAuthenticationMiddleware {
     }
 
     public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService) {
-        // Extract Bearer token from Authorization header
+        var sw = Stopwatch.StartNew();
+
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         string? token = null;
 
@@ -30,7 +30,10 @@ internal class McpAuthenticationMiddleware {
         }
 
         if (string.IsNullOrEmpty(token)) {
-            _logger.LogWarning("MCP request rejected: no Bearer token on {Path}", context.Request.Path);
+            _logger.LogWarning(
+                "Auth rejected — no Bearer token | path={Path} method={Method}",
+                context.Request.Path, context.Request.Method);
+
             context.Response.StatusCode = 401;
             context.Response.Headers.Append("WWW-Authenticate",
                 $"Bearer resource_metadata=\"{context.Request.Scheme}://" +
@@ -41,9 +44,15 @@ internal class McpAuthenticationMiddleware {
             return;
         }
 
-        var isValid = await authService.ValidateTokenAsync(token).ConfigureAwait(false);
+        var tokenHint = TokenHint(token);
+        var (isValid, fromCache) = await authService.ValidateTokenWithCacheInfoAsync(token).ConfigureAwait(false);
+
         if (!isValid) {
-            _logger.LogWarning("MCP request rejected: invalid token on {Path}", context.Request.Path);
+            sw.Stop();
+            _logger.LogWarning(
+                "Auth rejected — invalid/expired token | token={TokenHint} path={Path} elapsed={ElapsedMs}ms",
+                tokenHint, context.Request.Path, sw.ElapsedMilliseconds);
+
             authService.InvalidateToken(token);
 
             context.Response.StatusCode = 401;
@@ -56,8 +65,19 @@ internal class McpAuthenticationMiddleware {
             return;
         }
 
-        // Get user token entry from OAuthEndpoints (if it exists)
+        sw.Stop();
         var userEntry = OAuthEndpoints.GetUserToken(token);
+        var expiresIn = userEntry?.ExpiresAt != null
+            ? TimeSpan.FromMilliseconds(userEntry.ExpiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            : (TimeSpan?)null;
+
+        _logger.LogInformation(
+            "Auth OK | token={TokenHint} cached={FromCache} expiresIn={ExpiresIn} path={Path} elapsed={ElapsedMs}ms",
+            tokenHint,
+            fromCache,
+            expiresIn.HasValue ? $"{(int)expiresIn.Value.TotalMinutes}m" : "unknown",
+            context.Request.Path,
+            sw.ElapsedMilliseconds);
 
         authService.StoreTokenInContext(
             context,
@@ -68,4 +88,7 @@ internal class McpAuthenticationMiddleware {
 
         await _next(context).ConfigureAwait(false);
     }
+
+    private static string TokenHint(string token) =>
+        token.Length >= 8 ? $"...{token[^8..]}" : "***";
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Models;
@@ -125,13 +126,15 @@ internal class HaloPsaMcpTools {
 
     [McpServerTool]
     [Description(
-        "PREFERRED TOOL for all data questions: ticket counts, filtering, aggregation, reports, " +
-        "client lookups, agent stats, status breakdowns, and date-based analysis. " +
+        "PREFERRED TOOL for all HaloPSA data questions: ticket counts, filtering, aggregation, reports, " +
+        "client lookups, agent stats, status breakdowns, satisfaction surveys, timesheet hours, and date-based analysis. " +
         "Executes a SQL SELECT query against the HaloPSA reporting database. " +
         "Call halopsa_get_schema first to get table names, column names, status IDs, and example queries. " +
         "IMPORTANT: All datetimes are stored in UTC. Convert user's local timezone to UTC for WHERE clauses. " +
         "DEFAULT SCOPE: Unless the user specifies otherwise, scope queries to the current calendar month in UTC. " +
         "Returns only the columns you SELECT, keeping responses compact. " +
+        "Times out after 30 seconds for slow queries. " +
+        "WARN: Large responses (>500KB) may exceed context window limits - use TOP with smaller numbers or aggregation. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.")]
     public static async Task<string> HalopsaQuery(
         HaloPsaConfig config,
@@ -144,12 +147,35 @@ internal class HaloPsaMcpTools {
         if (client == null) {
             return AuthErrorMessage(appConfig);
         }
+        
+        // Use a 30-second timeout for SQL queries (shorter than the default 60 seconds)
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        
         try {
-            var result = await client.ExecuteQueryAsync(sql).ConfigureAwait(false);
-            if (result.Count == 0 && result.RawResponse != null) {
-                return $"Query returned 0 rows.\nRaw API response (for debugging):\n{result.RawResponse}";
+            var result = await client.ExecuteQueryAsync(sql, cts.Token).ConfigureAwait(false);
+            
+            // Check response size and warn about potential context window issues
+            var jsonResponse = JsonSerializer.Serialize(result.Rows, IndentedJsonOptions);
+            var responseSizeKB = Encoding.UTF8.GetByteCount(jsonResponse) / 1024.0;
+            
+            string sizeWarning = "";
+            if (responseSizeKB > 500) {
+                sizeWarning = $"\n\nWARNING: Large response ({responseSizeKB:F1}KB) may exceed context window limits. " +
+                             $"Consider using TOP with a smaller number, adding more specific WHERE conditions, " +
+                             $"or focusing on aggregated results (COUNT, SUM, AVG) instead of detailed rows.";
+            } else if (responseSizeKB > 100) {
+                sizeWarning = $"\n\nResponse size: {responseSizeKB:F1}KB. " +
+                             $"For very large datasets, consider aggregation queries or smaller TOP limits.";
             }
-            return $"Query returned {result.Count} rows:\n{JsonSerializer.Serialize(result.Rows, IndentedJsonOptions)}";
+            
+            if (result.Count == 0 && result.RawResponse != null) {
+                return $"Query returned 0 rows.\nRaw API response (for debugging):\n{result.RawResponse}{sizeWarning}";
+            }
+            
+            string rowCountInfo = result.Count == 1 ? "1 row" : $"{result.Count} rows";
+            return $"Query returned {rowCountInfo}:{sizeWarning}\n{jsonResponse}";
+        } catch (TaskCanceledException) {
+            return "Query timed out after 30 seconds. Try simplifying your query or reducing the date range.";
         } catch (Exception ex) {
             return $"Query failed: {ex.Message}";
         }
@@ -157,7 +183,7 @@ internal class HaloPsaMcpTools {
 
     [McpServerTool]
     [Description(
-        "Get the database schema, lookup IDs, and query best practices for halopsa_query. " +
+        "Get the HaloPSA database schema, lookup IDs, and query best practices for halopsa_query. " +
         "ALWAYS call this before writing SQL queries. Returns table/column names, " +
         "status IDs, request type IDs, and example queries. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.")]
@@ -171,117 +197,67 @@ internal class HaloPsaMcpTools {
         if (client == null) {
             return AuthErrorMessage(appConfig);
         }
-        var statusList = new List<object>();
-        var agentList = new List<object>();
+        var statusList = new List<StatusInfo>();
+        var agentList = new List<AgentInfo>();
 
         try {
             var statuses = await client.GetAsync<JsonElement>("/api/Status", new Dictionary<string, string> { ["type"] = "0" }).ConfigureAwait(false);
             if (statuses.ValueKind == JsonValueKind.Array) {
                 foreach (var s in statuses.EnumerateArray()) {
-                    statusList.Add(new {
-                        id = s.TryGetProperty("id", out var id) ? id.GetInt32() : 0,
-                        name = s.TryGetProperty("name", out var name) ? name.GetString() : ""
-                    });
+                    statusList.Add(new StatusInfo(
+                        s.TryGetProperty("id", out var id) ? id.GetInt32() : 0,
+                        s.TryGetProperty("name", out var name) ? name.GetString() ?? "" : ""
+                    ));
                 }
             }
 
             var agents = await client.GetAsync<JsonElement>("/api/Agent", new Dictionary<string, string> { ["count"] = "100" }).ConfigureAwait(false);
             if (agents.ValueKind == JsonValueKind.Array) {
                 foreach (var a in agents.EnumerateArray()) {
-                    agentList.Add(new {
-                        id = a.TryGetProperty("id", out var id) ? id.GetInt32() : 0,
-                        name = a.TryGetProperty("name", out var name) ? name.GetString() : ""
-                    });
+                    agentList.Add(new AgentInfo(
+                        a.TryGetProperty("id", out var id) ? id.GetInt32() : 0,
+                        a.TryGetProperty("name", out var name) ? name.GetString() ?? "" : ""
+                    ));
                 }
             }
         } catch {
             // Non-fatal: return schema without live lookups
         }
 
-        var schema = new {
-            message = "HaloPSA Reporting Database Schema and Best Practices",
-            important_notes = new[]
-            {
-                "All datetimes are UTC — convert from user's timezone",
-                "Default scope: current calendar month unless user says otherwise",
-                "fdeleted='False' is a STRING comparison, not integer",
-                "Request type column is 'Requesttype' not 'RequestTypeID'",
-                "Never use Fclosed column (broken). Closed tickets have Status=9",
-                "Close date is 'datecleared' not 'Closeddate'",
-                "Type mismatches require CAST: CAST(f.Assignedtoint AS int) = u.Unum",
-                "Invoice totals: (IHAmountDue + IHAmountPaid) because paid invoices zero out IHAmountDue"
-            },
-            status_ids = statusList,
-            agent_ids = agentList,
-            common_tables = new {
-                faults = new {
-                    name = "faults",
-                    description = "Tickets table",
-                    key_columns = new[] {
-                        "faultid", "symptom", "Status", "Assignedtoint", "sectio_",
-                        "category2", "category3", "Requesttype", "fdeleted",
-                        "dateoccurred", "datelogged", "datecleared"
-                    }
-                },
-                uname = new {
-                    name = "uname",
-                    description = "Agents/Users table",
-                    key_columns = new[] { "Unum", "uname", "uemail" }
-                },
-                site = new {
-                    name = "site",
-                    description = "Clients table",
-                    key_columns = new[] { "Ssitenum", "Sname", "sdeleted" }
-                },
-                aareadex = new {
-                    name = "aareadex",
-                    description = "Client sites",
-                    key_columns = new[] { "aarea", "asite" }
-                },
-                users = new {
-                    name = "users",
-                    description = "End users",
-                    key_columns = new[] { "uid", "uusername", "uemail", "usite" }
-                },
-                actions = new {
-                    name = "actions",
-                    description = "Ticket actions/notes",
-                    key_columns = new[] { "actoutcome", "faultid", "who", "whe_", "note" }
-                },
-                invoiceheader = new {
-                    name = "invoiceheader",
-                    description = "Invoices",
-                    key_columns = new[] {
-                        "IHid", "IHInvoice_ID", "IHAmountDue", "IHAmountPaid"
-                    }
-                }
-            },
-            example_queries = new[]
-            {
-                "SELECT TOP 10 faultid, symptom, Status, dateoccurred FROM faults " +
-                    "WHERE fdeleted='False' AND dateoccurred >= '2026-03-01T00:00:00Z' " +
-                    "ORDER BY faultid DESC",
-                "SELECT COUNT(*) as total FROM faults " +
-                    "WHERE fdeleted='False' AND Status=9 " +
-                    "AND datecleared >= '2026-03-01T00:00:00Z'",
-                "SELECT TOP 10 u.uname, COUNT(*) as ticket_count FROM faults f " +
-                    "INNER JOIN uname u ON CAST(f.Assignedtoint AS int) = u.Unum " +
-                    "WHERE f.fdeleted='False' AND f.dateoccurred >= '2026-03-01T00:00:00Z' " +
-                    "GROUP BY u.uname ORDER BY ticket_count DESC",
-                "SELECT TOP 10 s.Sname, COUNT(*) as ticket_count FROM faults f " +
-                    "INNER JOIN site s ON f.sectio_ = s.Ssitenum " +
-                    "WHERE f.fdeleted='False' AND f.dateoccurred >= '2026-03-01T00:00:00Z' " +
-                    "GROUP BY s.Sname ORDER BY ticket_count DESC"
-            }
-        };
+        var statusListText = string.Join("\n", statusList.Select(s => $"- {s.Id}: {s.Name}"));
+        var agentListText = string.Join("\n", agentList.Select(a => $"- {a.Id}: {a.Name}"));
 
-        return JsonSerializer.Serialize(schema, IndentedJsonOptions);
+        var tablesText = string.Join("\n\n", HaloPsaSchema.CommonTables.Select(kvp =>
+            $"### {kvp.Key} ({kvp.Value.Description})\n**Key columns:** {string.Join(", ", kvp.Value.KeyColumns)}"));
+
+        var examplesText = string.Join("\n\n", HaloPsaSchema.ExampleQueries.Select((q, i) =>
+            $"### Example {i + 1}\n```sql\n{q}\n```"));
+
+        var schema = $@"# HaloPSA Reporting Database Schema and Best Practices
+
+## Important Notes
+{string.Join("\n", HaloPsaSchema.ImportantNotes.Select(n => $"- {n}"))}
+
+## Status IDs
+{statusListText}
+
+## Agent IDs
+{agentListText}
+
+## Common Tables
+{tablesText}
+
+## Example Queries
+{examplesText}";
+
+        return schema;
     }
 
     [McpServerTool]
     [Description(
         "Check the current authentication status with HaloPSA. " +
         "ALWAYS call this first when the user asks anything about HaloPSA data. " +
+        "Times out after 10 seconds if HaloPSA server is unresponsive. " +
         "If not authenticated, show the user the login URL from the response.")]
     public static async Task<string> HalopsaAuthStatus(
         HaloPsaConfig config,
@@ -293,8 +269,12 @@ internal class HaloPsaMcpTools {
         if (client == null) {
             return AuthErrorMessage(appConfig);
         }
+        
+        // Use a shorter timeout for auth status checks (10 seconds instead of 15)
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        
         try {
-            var result = await client.GetAsync<JsonElement>("/api/Agent/me", null).ConfigureAwait(false);
+            var result = await client.GetAsync<JsonElement>("/api/Agent/me", null, cts.Token).ConfigureAwait(false);
             var name = result.TryGetProperty("name", out var n) ? n.GetString() : "Unknown";
             var email = result.TryGetProperty("email", out var e) ? e.GetString() : "";
             return JsonSerializer.Serialize(new { 
@@ -303,16 +283,33 @@ internal class HaloPsaMcpTools {
                 agent_email = email,
                 message = "Authenticated. All tools available."
             }, IndentedJsonOptions);
-        } catch {
-            return AuthErrorMessage(appConfig);
+        } catch (TaskCanceledException) {
+            return JsonSerializer.Serialize(new { 
+                authenticated = false, 
+                error = "Authentication check timed out after 10 seconds. HaloPSA server may be unresponsive.",
+                login_url = GetLoginUrl(appConfig)
+            }, IndentedJsonOptions);
+        } catch (HttpRequestException ex) {
+            return JsonSerializer.Serialize(new { 
+                authenticated = false, 
+                error = $"Network error during authentication: {ex.Message}",
+                login_url = GetLoginUrl(appConfig)
+            }, IndentedJsonOptions);
+        } catch (Exception ex) {
+            return JsonSerializer.Serialize(new { 
+                authenticated = false, 
+                error = $"Authentication check failed: {ex.Message}",
+                login_url = GetLoginUrl(appConfig)
+            }, IndentedJsonOptions);
         }
     }
 
     [McpServerTool]
     [Description(
-        "Search tickets by keyword or filters. Returns summary fields only. " +
+        "Search HaloPSA tickets by keyword or filters. Returns summary fields only. " +
         "Use halopsa_query for counts, date filtering, or aggregation. " +
         "Use halopsa_get_ticket for full ticket detail by ID. " +
+        "WARN: Large responses (>100KB) may impact context - reduce count or add filters. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.")]
     public static async Task<string> HalopsaListTickets(
         HaloPsaConfig config,
@@ -351,12 +348,20 @@ internal class HaloPsaMcpTools {
 
         var result = await client.GetAsync<JsonElement>("/api/Tickets", queryParams).ConfigureAwait(false);
         var trimmed = TrimFields(result, TicketSummaryFields);
-        return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+        var jsonResponse = JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+        var responseSizeKB = Encoding.UTF8.GetByteCount(jsonResponse) / 1024.0;
+        
+        string sizeWarning = "";
+        if (responseSizeKB > 100) {
+            sizeWarning = $"\n\nWARNING: Large response ({responseSizeKB:F1}KB). Consider reducing count or adding filters.";
+        }
+        
+        return $"{jsonResponse}{sizeWarning}";
     }
 
     [McpServerTool]
     [Description(
-        "Get full details for a specific ticket by ID. " +
+        "Get full details for a specific HaloPSA ticket by ID. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.")]
     public static async Task<string> HalopsaGetTicket(
         HaloPsaConfig config,
@@ -375,7 +380,8 @@ internal class HaloPsaMcpTools {
 
     [McpServerTool]
     [Description(
-        "List actions (notes/updates) for a specific ticket. Returns summary fields only. " +
+        "List actions (notes/updates) for a specific HaloPSA ticket. Returns summary fields only. " +
+        "WARN: Large responses (>100KB) may impact context - reduce count or narrow ticket scope. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.")]
     public static async Task<string> HalopsaListActions(
         HaloPsaConfig config,
@@ -396,6 +402,14 @@ internal class HaloPsaMcpTools {
 
         var result = await client.GetAsync<JsonElement>("/api/Actions", queryParams).ConfigureAwait(false);
         var trimmed = TrimFields(result, ActionSummaryFields);
-        return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+        var jsonResponse = JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+        var responseSizeKB = Encoding.UTF8.GetByteCount(jsonResponse) / 1024.0;
+        
+        string sizeWarning = "";
+        if (responseSizeKB > 100) {
+            sizeWarning = $"\n\nWARNING: Large response ({responseSizeKB:F1}KB). Consider reducing count or narrowing the ticket scope.";
+        }
+        
+        return $"{jsonResponse}{sizeWarning}";
     }
 }

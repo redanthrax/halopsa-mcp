@@ -27,12 +27,20 @@ internal class McpAuthenticationService {
     }
 
     /// <summary>
-    /// Validate a token against HaloPSA API (with 5-minute caching)
+    /// Validate a token against HaloPSA API (with 5-minute caching).
     /// </summary>
     public async Task<bool> ValidateTokenAsync(string token) {
+        var (isValid, _) = await ValidateTokenWithCacheInfoAsync(token).ConfigureAwait(false);
+        return isValid;
+    }
+
+    /// <summary>
+    /// Validate a token and return whether the result came from the local cache.
+    /// </summary>
+    public async Task<(bool IsValid, bool FromCache)> ValidateTokenWithCacheInfoAsync(string token) {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         if (ValidatedTokenCache.TryGetValue(token, out var cachedExpiry) && now < cachedExpiry) {
-            return true;
+            return (true, true);
         }
 
         try {
@@ -46,17 +54,17 @@ internal class McpAuthenticationService {
 
             if (response.IsSuccessStatusCode) {
                 ValidatedTokenCache[token] = now + TokenValidationCacheTtlMs;
-                _logger.LogDebug("Token validated against HaloPSA");
-                return true;
+                _logger.LogDebug("Token validated against HaloPSA (live check)");
+                return (true, false);
             }
 
-            _logger.LogWarning("Token validation failed with status {StatusCode}", response.StatusCode);
+            _logger.LogWarning("Token validation failed — HaloPSA returned {StatusCode}", response.StatusCode);
             ValidatedTokenCache.TryRemove(token, out _);
-            return false;
+            return (false, false);
         } catch (Exception ex) {
             _logger.LogError(ex, "Token validation request failed");
             ValidatedTokenCache.TryRemove(token, out _);
-            return false;
+            return (false, false);
         }
     }
 

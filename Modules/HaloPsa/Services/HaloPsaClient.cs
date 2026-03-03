@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -64,12 +65,19 @@ internal class HaloPsaClient : IDisposable {
         };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        sw.Stop();
+
         if (!response.IsSuccessStatusCode) {
             var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            _logger?.LogError("Token refresh failed: {StatusCode} - {Error}", response.StatusCode, error);
+            _logger?.LogError(
+                "Token refresh failed | status={StatusCode} elapsed={ElapsedMs}ms error={Error}",
+                response.StatusCode, sw.ElapsedMilliseconds, error);
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {error}");
         }
+
+        _logger?.LogInformation("Token refresh succeeded | elapsed={ElapsedMs}ms", sw.ElapsedMilliseconds);
 
         var tokenResponse = await JsonSerializer.DeserializeAsync<TokenResponse>(
             await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false)
@@ -84,11 +92,9 @@ internal class HaloPsaClient : IDisposable {
             _config.DirectRefreshToken!,
             expiresAt
         );
-        _logger?.LogInformation("Token refreshed successfully");
     }
 
     private async Task<string> GetTokenFromStoreAsync() {
-        // Implementation depends on store - for now return empty
         var token = await _tokenStore!.GetTokenAsync("default").ConfigureAwait(false);
         if (string.IsNullOrEmpty(token)) {
             throw new InvalidOperationException("No authentication token found. Please authenticate.");
@@ -136,91 +142,59 @@ internal class HaloPsaClient : IDisposable {
 
     public async Task<T> GetAsync<T>(string endpoint, Dictionary<string, string>? queryParams = null) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
-        var url = $"{_config.Url}{endpoint}";
-
-        var query = new List<string> { $"tenant={Uri.EscapeDataString(_config.GetTenant())}" };
-        if (queryParams != null) {
-            query.AddRange(queryParams.Select(kvp =>
-                $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
-        }
-
-        url += "?" + string.Join("&", query);
+        var url = BuildUrl(endpoint, queryParams);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        _logger?.LogDebug("GET {Url}", url);
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) {
-            var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            _logger?.LogError("GET {Endpoint} failed: {StatusCode} - {Error}", endpoint, response.StatusCode, error);
-            throw new HttpRequestException($"API call failed: {response.StatusCode} - {error}");
-        }
+        _logger?.LogDebug("HaloPSA GET {Endpoint}", endpoint);
 
-        return await JsonSerializer.DeserializeAsync<T>(
-            await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false)
+        var sw = Stopwatch.StartNew();
+        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var responseBytes = await LogAndReadResponseAsync("GET", endpoint, response, sw).ConfigureAwait(false);
+
+        return JsonSerializer.Deserialize<T>(responseBytes)
             ?? throw new InvalidOperationException("Invalid API response");
     }
 
     public async Task<T> PostAsync<T>(string endpoint, object body, Dictionary<string, string>? queryParams = null) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
-        var url = $"{_config.Url}{endpoint}";
-
-        var query = new List<string> { $"tenant={Uri.EscapeDataString(_config.GetTenant())}" };
-        if (queryParams != null) {
-            query.AddRange(queryParams.Select(kvp =>
-                $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
-        }
-
-        url += "?" + string.Join("&", query);
+        var url = BuildUrl(endpoint, queryParams);
+        var bodyJson = JsonSerializer.Serialize(body);
+        var bodyBytes = Encoding.UTF8.GetByteCount(bodyJson);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(body),
-            Encoding.UTF8,
-            "application/json"
-        );
+        request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
 
-        _logger?.LogDebug("POST {Url}", url);
+        _logger?.LogDebug("HaloPSA POST {Endpoint} | req={RequestBytes}B", endpoint, bodyBytes);
+
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) {
-            var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            _logger?.LogError("POST {Endpoint} failed: {StatusCode} - {Error}", endpoint, response.StatusCode, error);
-            throw new HttpRequestException($"API call failed: {response.StatusCode} - {error}");
-        }
+        var responseBytes = await LogAndReadResponseAsync("POST", endpoint, response, sw, bodyBytes).ConfigureAwait(false);
 
-        return await JsonSerializer.DeserializeAsync<T>(
-            await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false)
+        return JsonSerializer.Deserialize<T>(responseBytes)
             ?? throw new InvalidOperationException("Invalid API response");
     }
 
     public async Task<QueryResult> ExecuteQueryAsync(string sql) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
-        var url = $"{_config.Url}/api/Report";
-
-        var query = new List<string> { $"tenant={Uri.EscapeDataString(_config.GetTenant())}" };
-        url += "?" + string.Join("&", query);
+        var url = BuildUrl("/api/Report", null);
+        var bodyJson = JsonSerializer.Serialize(new object[] { new { _loadreportonly = true, sql } });
+        var bodyBytes = Encoding.UTF8.GetByteCount(bodyJson);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(new object[] { new { _loadreportonly = true, sql } }),
-            Encoding.UTF8,
-            "application/json"
-        );
+        request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
 
-        _logger?.LogDebug("Executing SQL query: {Sql}", sql);
+        _logger?.LogInformation("HaloPSA SQL | req={RequestBytes}B sql={Sql}", bodyBytes, sql);
+
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-        var rawText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode) {
-            _logger?.LogError("Report API failed: {StatusCode} - {Error}", response.StatusCode, rawText);
-            throw new HttpRequestException($"Report API failed: {response.StatusCode} - {rawText}");
-        }
+        var rawText = await LogAndReadResponseTextAsync("POST", "/api/Report", response, sw, bodyBytes).ConfigureAwait(false);
 
         var raw = JsonSerializer.Deserialize<JsonElement>(rawText);
 
@@ -248,6 +222,10 @@ internal class HaloPsaClient : IDisposable {
             }
         }
 
+        _logger?.LogInformation(
+            "HaloPSA SQL result | rows={RowCount} cols={ColCount} rawBytes={RawBytes}B",
+            rows.Count, columns.Count, Encoding.UTF8.GetByteCount(rawText));
+
         return new QueryResult {
             Rows = rows,
             Count = rows.Count,
@@ -263,6 +241,67 @@ internal class HaloPsaClient : IDisposable {
         } else {
             return await PostAsync<JsonElement>(endpoint, body ?? new { }, queryParams).ConfigureAwait(false);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private string BuildUrl(string endpoint, Dictionary<string, string>? queryParams) {
+        var url = $"{_config.Url}{endpoint}";
+        var query = new List<string> { $"tenant={Uri.EscapeDataString(_config.GetTenant())}" };
+        if (queryParams != null) {
+            query.AddRange(queryParams.Select(kvp =>
+                $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+        }
+        return url + "?" + string.Join("&", query);
+    }
+
+    private async Task<byte[]> LogAndReadResponseAsync(
+        string method, string endpoint, HttpResponseMessage response,
+        Stopwatch sw, int requestBytes = 0) {
+
+        var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+        sw.Stop();
+
+        if (!response.IsSuccessStatusCode) {
+            _logger?.LogError(
+                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms body={ErrorBody}",
+                method, endpoint, (int)response.StatusCode,
+                requestBytes, bytes.Length, sw.ElapsedMilliseconds,
+                Encoding.UTF8.GetString(bytes));
+            throw new HttpRequestException($"API call failed: {response.StatusCode} - {Encoding.UTF8.GetString(bytes)}");
+        }
+
+        _logger?.LogInformation(
+            "HaloPSA {Method} {Endpoint} | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
+            method, endpoint, (int)response.StatusCode,
+            requestBytes, bytes.Length, sw.ElapsedMilliseconds);
+
+        return bytes;
+    }
+
+    private async Task<string> LogAndReadResponseTextAsync(
+        string method, string endpoint, HttpResponseMessage response,
+        Stopwatch sw, int requestBytes = 0) {
+
+        var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        sw.Stop();
+
+        if (!response.IsSuccessStatusCode) {
+            _logger?.LogError(
+                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms body={ErrorBody}",
+                method, endpoint, (int)response.StatusCode,
+                requestBytes, Encoding.UTF8.GetByteCount(text), sw.ElapsedMilliseconds, text);
+            throw new HttpRequestException($"Report API failed: {response.StatusCode} - {text}");
+        }
+
+        _logger?.LogInformation(
+            "HaloPSA {Method} {Endpoint} | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
+            method, endpoint, (int)response.StatusCode,
+            requestBytes, Encoding.UTF8.GetByteCount(text), sw.ElapsedMilliseconds);
+
+        return text;
     }
 
     public void Dispose() {

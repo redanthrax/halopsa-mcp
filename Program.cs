@@ -1,7 +1,9 @@
 using HaloPsaMcp.Mcp;
 using HaloPsaMcp.Modules.Authentication.Endpoints;
+using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Extensions;
+using HaloPsaMcp.Modules.Common.Middleware;
 using HaloPsaMcp.Modules.Common.Models;
 using Serilog;
 using Serilog.Events;
@@ -25,6 +27,9 @@ if (isHttpMode) {
         .MinimumLevel.Information()
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+        .MinimumLevel.Override("HaloPsaMcp.Modules.Authentication", LogEventLevel.Debug)
+        .MinimumLevel.Override("HaloPsaMcp.Modules.HaloPsa", LogEventLevel.Debug)
+        .MinimumLevel.Override("HaloPsaMcp.Modules.Common", LogEventLevel.Debug)
         .Enrich.FromLogContext()
         .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture));
 
@@ -89,6 +94,8 @@ if (isHttpMode) {
     var app = builder.Build();
 
     // Map OAuth endpoints and MCP HTTP transport
+    app.UseMiddleware<McpAuthenticationMiddleware>();
+    app.UseMiddleware<RequestLoggingMiddleware>();
     app.MapMcp("/mcp").DisableAntiforgery();
     app.MapOAuthEndpoints();
 

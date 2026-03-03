@@ -93,14 +93,21 @@ if (isHttpMode) {
 
     var app = builder.Build();
 
-    // Map OAuth endpoints and MCP HTTP transport
-    app.UseMiddleware<McpAuthenticationMiddleware>();
-    app.UseMiddleware<RequestLoggingMiddleware>();
-    app.MapMcp("/mcp").DisableAntiforgery();
+    // Health check — no auth required (used by AKS liveness/readiness probes)
+    app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
+    // OAuth endpoints — no auth required (they are the auth flow)
     app.MapOAuthEndpoints();
 
-    // Health check endpoint
-    app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+    // MCP endpoint — Bearer token required, scoped middleware
+    app.UseWhen(
+        ctx => ctx.Request.Path.StartsWithSegments("/mcp"),
+        branch => {
+            branch.UseMiddleware<RequestLoggingMiddleware>();
+            branch.UseMiddleware<McpAuthenticationMiddleware>();
+        });
+
+    app.MapMcp("/mcp").DisableAntiforgery();
 
     Log.Information("HaloPSA MCP server running on http://localhost:{Port}", appConfig.HttpPort);
     Log.Information("OAuth login: http://localhost:{Port}/login", appConfig.HttpPort);

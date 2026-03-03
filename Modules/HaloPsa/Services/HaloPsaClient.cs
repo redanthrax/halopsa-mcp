@@ -140,7 +140,7 @@ internal class HaloPsaClient : IDisposable {
         return _clientCredentialsToken;
     }
 
-    public async Task<T> GetAsync<T>(string endpoint, Dictionary<string, string>? queryParams = null) {
+    public async Task<T> GetAsync<T>(string endpoint, Dictionary<string, string>? queryParams = null, CancellationToken cancellationToken = default) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
         var url = BuildUrl(endpoint, queryParams);
 
@@ -151,7 +151,7 @@ internal class HaloPsaClient : IDisposable {
         _logger?.LogDebug("HaloPSA GET {Endpoint}", endpoint);
 
         var sw = Stopwatch.StartNew();
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var responseBytes = await LogAndReadResponseAsync("GET", endpoint, response, sw).ConfigureAwait(false);
 
         return JsonSerializer.Deserialize<T>(responseBytes)
@@ -179,7 +179,7 @@ internal class HaloPsaClient : IDisposable {
             ?? throw new InvalidOperationException("Invalid API response");
     }
 
-    public async Task<QueryResult> ExecuteQueryAsync(string sql) {
+    public async Task<QueryResult> ExecuteQueryAsync(string sql, CancellationToken cancellationToken = default) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
         var url = BuildUrl("/api/Report", null);
         var bodyJson = JsonSerializer.Serialize(new object[] { new { _loadreportonly = true, sql } });
@@ -193,7 +193,7 @@ internal class HaloPsaClient : IDisposable {
         _logger?.LogInformation("HaloPSA SQL | req={RequestBytes}B sql={Sql}", bodyBytes, sql);
 
         var sw = Stopwatch.StartNew();
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var rawText = await LogAndReadResponseTextAsync("POST", "/api/Report", response, sw, bodyBytes).ConfigureAwait(false);
 
         var raw = JsonSerializer.Deserialize<JsonElement>(rawText);

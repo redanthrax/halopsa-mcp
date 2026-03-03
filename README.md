@@ -119,7 +119,7 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 
 | Tool | Description |
 |------|-------------|
-| `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering. |
+| `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. Includes table relationship helpers for faults, actions, and timesheets. |
 | `halopsa_get_schema` | Returns table/column names, live status IDs, agent IDs, and example queries. Call before writing SQL. |
 | `halopsa_list_tickets` | Search tickets by keyword or filters. Returns trimmed summary fields. |
 | `halopsa_get_ticket` | Get full details for a specific ticket by ID. |
@@ -154,7 +154,20 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 **Query returns 0 rows**:
 1. Call `halopsa_get_schema` first to verify table/column names
 2. Check that datetime filters use UTC format
-3. The Report API may require specific permissions in HaloPSA
+3. For satisfaction surveys, use the `feedback` table with `halopsa_query`
+4. For timesheet and action analysis, use the relationship helpers in the schema
+5. The Report API may require specific permissions in HaloPSA
+
+## Table Relationships
+
+The schema includes helpers for common table relationships:
+
+- **faults.faultid** → **actions.faultid** (ticket actions and updates)
+- **faults.faultid** → **timesheet.faultid** (work time logged against tickets)  
+- **faults.faultid** → **feedback.FBFaultID** (customer satisfaction surveys)
+- **faults.Requesttype** → **requesttype.RTid** (request type configurations)
+
+Use `halopsa_get_schema` to see example queries for joining these tables.
 
 ## Requirements
 

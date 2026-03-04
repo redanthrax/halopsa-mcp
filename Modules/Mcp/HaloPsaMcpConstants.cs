@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using System.Text;
 using HaloPsaMcp.Modules.Common.Models;
 
 namespace HaloPsaMcp.Modules.Mcp;
@@ -7,6 +8,17 @@ namespace HaloPsaMcp.Modules.Mcp;
 internal static class HaloPsaMcpConstants
 {
     internal static readonly JsonSerializerOptions IndentedJsonOptions = new() { WriteIndented = true };
+
+    // CompositeFormats for performance
+    internal static readonly CompositeFormat LargeResponseWarningFormat = CompositeFormat.Parse(LargeResponseWarningTemplate);
+    internal static readonly CompositeFormat MediumResponseWarningFormat = CompositeFormat.Parse(MediumResponseWarningTemplate);
+    internal static readonly CompositeFormat QueryResultFormat = CompositeFormat.Parse(QueryResultTemplate);
+    internal static readonly CompositeFormat QueryFailedFormat = CompositeFormat.Parse(QueryFailedTemplate);
+    internal static readonly CompositeFormat SchemaFormat = CompositeFormat.Parse(SchemaTemplate);
+    internal static readonly CompositeFormat AuthNetworkErrorFormat = CompositeFormat.Parse(AuthNetworkErrorTemplate);
+    internal static readonly CompositeFormat AuthFailedFormat = CompositeFormat.Parse(AuthFailedTemplate);
+    internal static readonly CompositeFormat ListLargeResponseWarningFormat = CompositeFormat.Parse(ListLargeResponseWarningTemplate);
+    internal static readonly CompositeFormat ActionsLargeResponseWarningFormat = CompositeFormat.Parse(ActionsLargeResponseWarningTemplate);
 
     internal static readonly string[] TicketSummaryFields = [
         "id", "faultid", "summary", "symptom", "details",
@@ -22,6 +34,24 @@ internal static class HaloPsaMcpConstants
         "id", "faultid", "actoutcome", "who", "whe_", "whodid",
         "note", "emailfrom", "emailto", "timetaken",
         "outcome", "actiontype", "isimportant"
+    ];
+
+    internal static readonly string[] TicketDetailFields = [
+        "id", "faultid", "summary", "symptom", "details",
+        "status_id", "status", "priority_id", "priority",
+        "client_id", "client_name", "site_id", "site_name",
+        "agent_id", "agent", "user_id", "user_name",
+        "requesttype", "category_1", "category_2", "category_3",
+        "dateoccurred", "datecreated", "datelogged", "datecleared",
+        "sla_id", "team", "impact", "urgency",
+        "deadlinedate", "startdate", "targetdate",
+        "responsetargetmet", "fixbytargetmet",
+        "contract_id", "project_id", "asset_id",
+        "attachments", "customfields"
+    ];
+
+    internal static readonly string[] OutcomeSummaryFields = [
+        "id", "name", "colour", "timetaken", "isdefault"
     ];
 
     internal static string GetLoginUrl(AppConfig appConfig)
@@ -68,6 +98,18 @@ internal static class HaloPsaMcpConstants
     internal const string HalopsaGetTicketDescription =
         "Get full details for a specific HaloPSA ticket by ID. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaCreateTicketDescription =
+        "Create new ticket. Use 0 for optional fields to use defaults.";
+
+    internal const string HalopsaUpdateTicketDescription =
+        "Update existing ticket. Use 0 for optional fields to leave unchanged.";
+
+    internal const string HalopsaGetOutcomesDescription =
+        "Get valid outcome IDs for actions. Call before halopsa_add_action.";
+
+    internal const string HalopsaAddActionDescription =
+        "Add action/note to ticket. REQUIRES outcome_id. Use halopsa_get_outcomes.";
 
     internal const string HalopsaListActionsDescription =
         "List actions (notes/updates) for a specific HaloPSA ticket. Returns summary fields only. " +

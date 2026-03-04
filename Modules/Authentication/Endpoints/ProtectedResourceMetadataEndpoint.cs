@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;

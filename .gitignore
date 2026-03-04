@@ -137,3 +137,5 @@ test-mcp.sh
 # Helm packages
 *.tgz
 !helm/**/*.tgz
+
+.crush

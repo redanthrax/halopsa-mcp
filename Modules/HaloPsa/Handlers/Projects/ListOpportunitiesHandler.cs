@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
-using HaloPsaMcp.Modules.HaloPsa.Queries.Contracts;
+using HaloPsaMcp.Modules.HaloPsa.Queries.Projects;
 using HaloPsaMcp.Modules.HaloPsa.Services;
 
-namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Contracts;
+namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Projects;
 
-internal static class ContractQueryHandlers {
-    public static async Task<ListContractsResult> Handle(
-        ListContractsQuery query,
+internal static class ListOpportunitiesHandler {
+    public static async Task<ListOpportunitiesResult> Handle(
+        ListOpportunitiesQuery query,
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor) {
         var client = factory.CreateClient(contextAccessor.HttpContext);
@@ -23,7 +23,7 @@ internal static class ContractQueryHandlers {
             queryParams["search"] = query.Search;
         }
 
-        var result = await client.GetAsync<JsonElement>("/api/SLAService", queryParams).ConfigureAwait(false);
-        return new ListContractsResult(result);
+        var result = await client.GetAsync<JsonElement>("/api/Opportunities", queryParams).ConfigureAwait(false);
+        return new ListOpportunitiesResult(result);
     }
 }

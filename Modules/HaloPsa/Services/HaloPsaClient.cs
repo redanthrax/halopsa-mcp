@@ -179,6 +179,43 @@ internal class HaloPsaClient : IDisposable {
             ?? throw new InvalidOperationException("Invalid API response");
     }
 
+    public async Task<T> PutAsync<T>(string endpoint, object body, Dictionary<string, string>? queryParams = null) {
+        var token = await GetAccessTokenAsync().ConfigureAwait(false);
+        var url = BuildUrl(endpoint, queryParams);
+        var bodyJson = JsonSerializer.Serialize(body);
+        var bodyBytes = Encoding.UTF8.GetByteCount(bodyJson);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
+
+        _logger?.LogDebug("HaloPSA PUT {Endpoint} | req={RequestBytes}B", endpoint, bodyBytes);
+
+        var sw = Stopwatch.StartNew();
+        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var responseBytes = await LogAndReadResponseAsync("PUT", endpoint, response, sw, bodyBytes).ConfigureAwait(false);
+
+        return JsonSerializer.Deserialize<T>(responseBytes)
+            ?? throw new InvalidOperationException("Invalid API response");
+    }
+
+    public async Task DeleteAsync(string endpoint, Dictionary<string, string>? queryParams = null) {
+        var token = await GetAccessTokenAsync().ConfigureAwait(false);
+        var url = BuildUrl(endpoint, queryParams);
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        _logger?.LogDebug("HaloPSA DELETE {Endpoint}", endpoint);
+
+        var sw = Stopwatch.StartNew();
+        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        _ = await LogAndReadResponseAsync("DELETE", endpoint, response, sw).ConfigureAwait(false);
+        // For DELETE, we don't return content, just ensure success
+    }
+
     public async Task<QueryResult> ExecuteQueryAsync(string sql, CancellationToken cancellationToken = default) {
         var token = await GetAccessTokenAsync().ConfigureAwait(false);
         var url = BuildUrl("/api/Report", null);
@@ -234,13 +271,13 @@ internal class HaloPsaClient : IDisposable {
         };
     }
 
-    public async Task<JsonElement> MakeApiCallAsync(string endpoint, string method, object? body = null,
-        Dictionary<string, string>? queryParams = null) {
-        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)) {
-            return await GetAsync<JsonElement>(endpoint, queryParams).ConfigureAwait(false);
-        } else {
-            return await PostAsync<JsonElement>(endpoint, body ?? new { }, queryParams).ConfigureAwait(false);
-        }
+    public async Task<JsonElement> MakeApiCallAsync(string endpoint, string method, object? body = null, Dictionary<string, string>? queryParams = null) {
+        return method.ToUpperInvariant() switch {
+            "GET" => await GetAsync<JsonElement>(endpoint, queryParams).ConfigureAwait(false),
+            "POST" => await PostAsync<JsonElement>(endpoint, body ?? new { }, queryParams).ConfigureAwait(false),
+            "PUT" => await PutAsync<JsonElement>(endpoint, body ?? new { }, queryParams).ConfigureAwait(false),
+            _ => throw new NotSupportedException($"HTTP method {method} is not supported")
+        };
     }
 
     // -------------------------------------------------------------------------

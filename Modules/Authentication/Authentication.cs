@@ -1,6 +1,8 @@
+#pragma warning disable IDE0005 // Using directive is unnecessary - false positive
 using HaloPsaMcp.Modules.Authentication.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+#pragma warning restore IDE0005
 
 namespace HaloPsaMcp.Modules.Authentication;
 

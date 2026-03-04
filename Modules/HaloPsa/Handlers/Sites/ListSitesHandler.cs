@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Sites;
 
-internal static class SiteQueryHandlers {
+internal static class ListSitesHandler {
     public static async Task<ListSitesResult> Handle(
         ListSitesQuery query,
         HaloPsaClientFactory factory,

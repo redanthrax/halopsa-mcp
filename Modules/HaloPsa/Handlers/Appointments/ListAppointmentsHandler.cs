@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Appointments;
 
-internal static class AppointmentQueryHandlers {
+internal static class ListAppointmentsHandler {
     public static async Task<ListAppointmentsResult> Handle(
         ListAppointmentsQuery query,
         HaloPsaClientFactory factory,

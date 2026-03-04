@@ -1,6 +1,5 @@
-using System.Collections.Concurrent;
-using System.Globalization;
 using System.Security.Cryptography;
+#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using HaloPsaMcp.Modules.Authentication.Models;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Models;

@@ -1,4 +1,5 @@
-using HaloPsaMcp.Mcp;
+using HaloPsaMcp.Modules.Mcp;
+using HaloPsaMcp.Modules;
 using HaloPsaMcp.Modules.Authentication.Endpoints;
 using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
@@ -37,9 +38,7 @@ if (isHttpMode) {
     builder.Services.AddSingleton(appConfig);
 
     // Register modules
-    builder.Services.AddSharedModule(builder.Configuration);
-    builder.Services.AddAuthenticationModule(builder.Configuration);
-    builder.Services.AddHaloPsaModule(builder.Configuration);
+    builder.Services.AddAllModules(builder.Configuration);
     builder.Services.AddHttpClient();
 
     // Configure Kestrel
@@ -129,9 +128,7 @@ if (isHttpMode) {
     builder.Services.AddSingleton(appConfig);
 
     // Register modules
-    builder.Services.AddSharedModule(builder.Configuration);
-    builder.Services.AddAuthenticationModule(builder.Configuration);
-    builder.Services.AddHaloPsaModule(builder.Configuration);
+    builder.Services.AddAllModules(builder.Configuration);
     builder.Services.AddHttpClient();
 
     builder.WebHost.ConfigureKestrel(options => {

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using HaloPsaMcp.Modules.Authentication.Endpoints;
 using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Middleware;
@@ -19,7 +18,7 @@ internal class McpAuthenticationMiddleware {
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService) {
+    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, TokenStorageService tokenStorage) {
         var sw = Stopwatch.StartNew();
 
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
@@ -66,7 +65,7 @@ internal class McpAuthenticationMiddleware {
         }
 
         sw.Stop();
-        var userEntry = OAuthEndpoints.GetUserToken(token);
+        var userEntry = tokenStorage.GetToken(token);
         var expiresIn = userEntry?.ExpiresAt != null
             ? TimeSpan.FromMilliseconds(userEntry.ExpiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             : (TimeSpan?)null;

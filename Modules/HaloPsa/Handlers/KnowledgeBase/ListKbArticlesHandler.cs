@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.KnowledgeBase;
 
-internal static class KnowledgeBaseQueryHandlers {
+internal static class ListKbArticlesHandler {
     public static async Task<ListKbArticlesResult> Handle(
         ListKbArticlesQuery query,
         HaloPsaClientFactory factory,
@@ -21,14 +21,5 @@ internal static class KnowledgeBaseQueryHandlers {
 
         var result = await client.GetAsync<JsonElement>("/api/KBArticle", queryParams).ConfigureAwait(false);
         return new ListKbArticlesResult(result);
-    }
-
-    public static async Task<GetKbArticleResult> Handle(
-        GetKbArticleQuery query,
-        HaloPsaClientFactory factory,
-        IHttpContextAccessor contextAccessor) {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
-        var result = await client.GetAsync<JsonElement>($"/api/KBArticle/{query.Id}", null).ConfigureAwait(false);
-        return new GetKbArticleResult(result);
     }
 }

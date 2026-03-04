@@ -10,12 +10,7 @@ using ModelContextProtocol.Server;
 
 namespace HaloPsaMcp.Modules.Mcp;
 
-[McpServerToolType]
-// Static holder types should be Static or NotInheritable
-// MCP framework requires non-static class
-#pragma warning disable CA1052
 internal class HaloPsaMcpTools {
-#pragma warning restore CA1052
     private static readonly JsonSerializerOptions IndentedJsonOptions = HaloPsaMcpConstants.IndentedJsonOptions;
 
     private static HaloPsaClient? TryCreateUserClient(
@@ -101,6 +96,76 @@ internal class HaloPsaMcpTools {
         return result;
     }
 
+    private static string FormatUpdateTicketResponse(JsonElement result, int ticketId) {
+        // Extract minimal confirmation from API response
+        string? summary = null;
+        int? statusId = null;
+        
+        if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0) {
+            var first = result[0];
+            if (first.TryGetProperty("summary", out var s)) summary = s.GetString();
+            if (first.TryGetProperty("status_id", out var st)) statusId = st.GetInt32();
+        } else if (result.ValueKind == JsonValueKind.Object) {
+            if (result.TryGetProperty("summary", out var s)) summary = s.GetString();
+            if (result.TryGetProperty("status_id", out var st)) statusId = st.GetInt32();
+        }
+
+        return JsonSerializer.Serialize(new {
+            success = true,
+            ticket_id = ticketId,
+            summary,
+            status_id = statusId,
+            message = $"Ticket #{ticketId} updated successfully"
+        }, IndentedJsonOptions);
+    }
+
+    private static string FormatAddActionResponse(JsonElement result, int ticketId) {
+        // Extract minimal confirmation from API response
+        int? actionId = null;
+        string? outcome = null;
+        double? timeTaken = null;
+        
+        if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0) {
+            var first = result[0];
+            if (first.TryGetProperty("id", out var id)) actionId = id.GetInt32();
+            if (first.TryGetProperty("outcome", out var o)) outcome = o.GetString();
+            if (first.TryGetProperty("timetaken", out var t)) timeTaken = t.GetDouble();
+        } else if (result.ValueKind == JsonValueKind.Object) {
+            if (result.TryGetProperty("id", out var id)) actionId = id.GetInt32();
+            if (result.TryGetProperty("outcome", out var o)) outcome = o.GetString();
+            if (result.TryGetProperty("timetaken", out var t)) timeTaken = t.GetDouble();
+        }
+
+        return JsonSerializer.Serialize(new {
+            success = true,
+            ticket_id = ticketId,
+            action_id = actionId,
+            outcome,
+            time_taken_hours = timeTaken,
+            message = $"Action added to ticket #{ticketId}"
+        }, IndentedJsonOptions);
+    }
+
+    private static string FormatCreateTicketResponse(JsonElement result) {
+        int? ticketId = null;
+        string? summary = null;
+        int? statusId = null;
+        
+        if (result.ValueKind == JsonValueKind.Object) {
+            if (result.TryGetProperty("id", out var id)) ticketId = id.GetInt32();
+            if (result.TryGetProperty("summary", out var s)) summary = s.GetString();
+            if (result.TryGetProperty("status_id", out var st)) statusId = st.GetInt32();
+        }
+
+        return JsonSerializer.Serialize(new {
+            success = true,
+            ticket_id = ticketId,
+            summary,
+            status_id = statusId,
+            message = ticketId.HasValue ? $"Ticket #{ticketId} created successfully" : "Ticket created"
+        }, IndentedJsonOptions);
+    }
+
     [McpServerTool]
     [Description(HaloPsaMcpConstants.HalopsaQueryDescription)]
     public static async Task<string> HalopsaQuery(
@@ -127,9 +192,9 @@ internal class HaloPsaMcpTools {
             
             string sizeWarning = "";
             if (responseSizeKB > 500) {
-                sizeWarning = $"\n\n{string.Format(HaloPsaMcpConstants.LargeResponseWarningTemplate, responseSizeKB)}";
+                sizeWarning = "\n\n" + string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.LargeResponseWarningTemplate, responseSizeKB);
             } else if (responseSizeKB > 100) {
-                sizeWarning = $"\n\n{string.Format(HaloPsaMcpConstants.MediumResponseWarningTemplate, responseSizeKB)}";
+                sizeWarning = "\n\n" + string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.MediumResponseWarningTemplate, responseSizeKB);
             }
             
             if (result.Count == 0 && result.RawResponse != null) {
@@ -137,11 +202,11 @@ internal class HaloPsaMcpTools {
             }
             
             string rowCountInfo = result.Count == 1 ? "1 row" : $"{result.Count} rows";
-            return string.Format(HaloPsaMcpConstants.QueryResultTemplate, rowCountInfo, sizeWarning, jsonResponse);
+            return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryResultTemplate, rowCountInfo, sizeWarning, jsonResponse);
         } catch (TaskCanceledException) {
             return HaloPsaMcpConstants.QueryTimeoutMessage;
         } catch (Exception ex) {
-            return string.Format(HaloPsaMcpConstants.QueryFailedTemplate, ex.Message);
+            return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryFailedTemplate, ex.Message);
         }
     }
 
@@ -195,7 +260,7 @@ internal class HaloPsaMcpTools {
         var examplesText = string.Join("\n\n", HaloPsaSchema.ExampleQueries.Select((q, i) =>
             $"### Example {i + 1}\n```sql\n{q}\n```"));
 
-        var schema = string.Format(HaloPsaMcpConstants.SchemaTemplate,
+        var schema = string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.SchemaTemplate,
             string.Join("\n", HaloPsaSchema.ImportantNotes.Select(n => $"- {n}")),
             statusListText,
             agentListText,
@@ -240,13 +305,13 @@ internal class HaloPsaMcpTools {
         } catch (HttpRequestException ex) {
             return JsonSerializer.Serialize(new { 
                 authenticated = false, 
-                error = string.Format(HaloPsaMcpConstants.AuthNetworkErrorTemplate, ex.Message),
+                error = string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.AuthNetworkErrorTemplate, ex.Message),
                 login_url = HaloPsaMcpConstants.GetLoginUrl(appConfig)
             }, IndentedJsonOptions);
         } catch (Exception ex) {
             return JsonSerializer.Serialize(new { 
                 authenticated = false, 
-                error = string.Format(HaloPsaMcpConstants.AuthFailedTemplate, ex.Message),
+                error = string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.AuthFailedTemplate, ex.Message),
                 login_url = HaloPsaMcpConstants.GetLoginUrl(appConfig)
             }, IndentedJsonOptions);
         }
@@ -261,9 +326,9 @@ internal class HaloPsaMcpTools {
         McpAuthenticationService? authService,
         TokenStorageService? tokenStorage,
         [Description("Maximum number of tickets to return (1-50)")] int count = 10,
-        [Description("Filter by status ID (use halopsa_get_schema for IDs)")] int? status = null,
-        [Description("Filter by client ID")] int? clientId = null,
-        [Description("Filter by agent ID (use halopsa_get_schema for IDs)")] int? agentId = null,
+        [Description("Filter by status ID (0 = no filter)")] int status = 0,
+        [Description("Filter by client ID (0 = no filter)")] int clientId = 0,
+        [Description("Filter by agent ID (0 = no filter)")] int agentId = 0,
         [Description("Search query")] string? search = null) {
         var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
         if (client == null) {
@@ -273,16 +338,16 @@ internal class HaloPsaMcpTools {
             ["count"] = Math.Min(count, 50).ToString(CultureInfo.InvariantCulture)
         };
 
-        if (status.HasValue) {
-            queryParams["status"] = status.Value.ToString(CultureInfo.InvariantCulture);
+        if (status != 0) {
+            queryParams["status"] = status.ToString(CultureInfo.InvariantCulture);
         }
 
-        if (clientId.HasValue) {
-            queryParams["client_id"] = clientId.Value.ToString(CultureInfo.InvariantCulture);
+        if (clientId != 0) {
+            queryParams["client_id"] = clientId.ToString(CultureInfo.InvariantCulture);
         }
 
-        if (agentId.HasValue) {
-            queryParams["agent_id"] = agentId.Value.ToString(CultureInfo.InvariantCulture);
+        if (agentId != 0) {
+            queryParams["agent_id"] = agentId.ToString(CultureInfo.InvariantCulture);
         }
 
         if (!string.IsNullOrEmpty(search)) {
@@ -296,7 +361,7 @@ internal class HaloPsaMcpTools {
         
         string sizeWarning = "";
         if (responseSizeKB > 100) {
-            sizeWarning = $"\n\n{string.Format(HaloPsaMcpConstants.ListLargeResponseWarningTemplate, responseSizeKB)}";
+            sizeWarning = "\n\n" + string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.ListLargeResponseWarningTemplate, responseSizeKB);
         }
         
         return $"{jsonResponse}{sizeWarning}";
@@ -316,7 +381,134 @@ internal class HaloPsaMcpTools {
             return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
         }
         var result = await client.GetAsync<JsonElement>($"/api/Tickets/{id}", null).ConfigureAwait(false);
-        return JsonSerializer.Serialize(result, IndentedJsonOptions);
+        var trimmed = TrimFields(result, HaloPsaMcpConstants.TicketDetailFields);
+        return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaCreateTicketDescription)]
+    public static async Task<string> HalopsaCreateTicket(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Ticket summary/title")] string summary,
+        [Description("Ticket details/description")] string? details = null,
+        [Description("Client ID (0 = no client)")] int clientId = 0,
+        [Description("Agent ID to assign (0 = unassigned)")] int agentId = 0,
+        [Description("Status ID (0 = default status)")] int statusId = 0,
+        [Description("Priority ID (0 = default priority)")] int priorityId = 0,
+        [Description("Ticket type ID (0 = default type)")] int ticketTypeId = 0,
+        [Description("Site ID (0 = no site)")] int siteId = 0) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var request = new CreateTicketRequest {
+            Summary = summary,
+            Details = details,
+            ClientId = clientId != 0 ? clientId : null,
+            AgentId = agentId != 0 ? agentId : null,
+            StatusId = statusId != 0 ? statusId : null,
+            PriorityId = priorityId != 0 ? priorityId : null,
+            TicketTypeId = ticketTypeId != 0 ? ticketTypeId : null,
+            SiteId = siteId != 0 ? siteId : null
+        };
+
+        var result = await client.PostAsync<JsonElement>("/api/Tickets", request).ConfigureAwait(false);
+        return FormatCreateTicketResponse(result);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaUpdateTicketDescription)]
+    public static async Task<string> HalopsaUpdateTicket(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Ticket ID to update")] int id,
+        [Description("Updated ticket summary/title")] string summary,
+        [Description("Updated ticket details/description")] string? details = null,
+        [Description("Client ID (0 = no change)")] int clientId = 0,
+        [Description("Agent ID to assign (0 = no change)")] int agentId = 0,
+        [Description("Status ID (0 = no change)")] int statusId = 0,
+        [Description("Priority ID (0 = no change)")] int priorityId = 0,
+        [Description("Ticket type ID (0 = no change)")] int ticketTypeId = 0,
+        [Description("Site ID (0 = no change)")] int siteId = 0,
+        [Description("End user ID (0 = no change)")] int userId = 0) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var request = new UpdateTicketRequest(
+            Id: id,
+            Summary: summary,
+            Details: details,
+            ClientId: clientId != 0 ? clientId : null,
+            AgentId: agentId != 0 ? agentId : null,
+            StatusId: statusId != 0 ? statusId : null,
+            PriorityId: priorityId != 0 ? priorityId : null,
+            TicketTypeId: ticketTypeId != 0 ? ticketTypeId : null,
+            SiteId: siteId != 0 ? siteId : null,
+            UserId: userId != 0 ? userId : null);
+
+        var payload = new[] { request };
+        var result = await client.PostAsync<JsonElement>("/api/Tickets", payload).ConfigureAwait(false);
+        return FormatUpdateTicketResponse(result, id);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaAddActionDescription)]
+    public static async Task<string> HalopsaAddAction(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Ticket ID to add action to")] int ticketId,
+        [Description("Outcome ID (REQUIRED - use halopsa_get_schema for IDs)")] int outcomeId,
+        [Description("Action note (plain text or HTML)")] string? note = null,
+        [Description("Time taken in hours (e.g., 0.5 for 30 minutes)")] double? timeTaken = null,
+        [Description("New status ID to change ticket to (use halopsa_get_schema for IDs)")] int? newStatus = null,
+        [Description("Hide from end user (default: true)")] bool hiddenFromUser = true) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var request = new AddActionRequest(
+            TicketId: ticketId,
+            OutcomeId: outcomeId,
+            Note: note,
+            TimeTaken: timeTaken,
+            HiddenFromUser: hiddenFromUser,
+            NewStatus: newStatus);
+
+        var payload = new[] { request };
+        var result = await client.PostAsync<JsonElement>("/api/Actions", payload).ConfigureAwait(false);
+        return FormatAddActionResponse(result, ticketId);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaGetOutcomesDescription)]
+    public static async Task<string> HalopsaGetOutcomes(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var result = await client.GetAsync<JsonElement>("/api/Outcome", null).ConfigureAwait(false);
+        var trimmed = TrimFields(result, HaloPsaMcpConstants.OutcomeSummaryFields);
+        return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
     }
 
     [McpServerTool]
@@ -345,10 +537,10 @@ internal class HaloPsaMcpTools {
         
         string sizeWarning = "";
         if (responseSizeKB > 100) {
-            sizeWarning = $"\n\n{string.Format(HaloPsaMcpConstants.ActionsLargeResponseWarningTemplate,
-                responseSizeKB)}";
+            sizeWarning = "\n\n" + string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.ActionsLargeResponseWarningTemplate, responseSizeKB);
         }
         
         return $"{jsonResponse}{sizeWarning}";
     }
+#pragma warning restore CA1863
 }

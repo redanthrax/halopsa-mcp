@@ -1,4 +1,5 @@
 using HaloPsaMcp.Modules.Authentication.Models;
+#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Endpoints;

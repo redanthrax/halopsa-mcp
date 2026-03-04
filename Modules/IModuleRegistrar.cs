@@ -1,3 +1,4 @@
+#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

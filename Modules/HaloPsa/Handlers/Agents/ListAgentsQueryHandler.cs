@@ -5,17 +5,21 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Agents;
 
-internal static class AgentQueryHandlers {
+internal static class ListAgentsQueryHandler
+{
     public static async Task<ListAgentsResult> Handle(
         ListAgentsQuery query,
         HaloPsaClientFactory factory,
-        IHttpContextAccessor contextAccessor) {
+        IHttpContextAccessor contextAccessor)
+    {
         var client = factory.CreateClient(contextAccessor.HttpContext);
-        var queryParams = new Dictionary<string, string> {
+        var queryParams = new Dictionary<string, string>
+        {
             ["count"] = Math.Min(query.Count, 100).ToString(CultureInfo.InvariantCulture)
         };
 
-        if (!string.IsNullOrEmpty(query.Search)) {
+        if (!string.IsNullOrEmpty(query.Search))
+        {
             queryParams["search"] = query.Search;
         }
 

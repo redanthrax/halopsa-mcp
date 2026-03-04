@@ -1,4 +1,5 @@
 using HaloPsaMcp.Modules.Common.Models;
+#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using HaloPsaMcp.Modules.HaloPsa.Models;
 using HaloPsaMcp.Modules.HaloPsa.Services;
 using Microsoft.Extensions.Configuration;

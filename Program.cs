@@ -3,7 +3,6 @@ using HaloPsaMcp.Modules;
 using HaloPsaMcp.Modules.Authentication.Endpoints;
 using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
-using HaloPsaMcp.Modules.Common.Extensions;
 using HaloPsaMcp.Modules.Common.Middleware;
 using HaloPsaMcp.Modules.Common.Models;
 using Serilog;
@@ -123,7 +122,8 @@ if (isHttpMode) {
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
         .Enrich.FromLogContext()
-        .WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose, formatProvider: System.Globalization.CultureInfo.InvariantCulture));
+        .WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose, formatProvider: System.Globalization.CultureInfo.InvariantCulture)
+        .WriteTo.File("logs/mcp.log", rollingInterval: RollingInterval.Day, formatProvider: System.Globalization.CultureInfo.InvariantCulture));
 
     builder.Services.AddSingleton(appConfig);
 
@@ -147,5 +147,11 @@ if (isHttpMode) {
 
     Log.Information("OAuth server available at http://localhost:{Port}/login for re-authentication", appConfig.HttpPort);
 
-    await app.RunAsync().ConfigureAwait(false);
+    try {
+        await app.RunAsync().ConfigureAwait(false);
+    } catch (IOException ex) when (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase)) {
+        Log.Error(ex, "HTTP server failed to start due to port conflict. MCP stdio server will continue without OAuth re-authentication.");
+        // Keep the application running for MCP stdio
+        await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+    }
 }

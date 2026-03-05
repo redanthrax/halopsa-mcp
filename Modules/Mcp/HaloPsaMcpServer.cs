@@ -542,5 +542,223 @@ internal class HaloPsaMcpTools {
         
         return $"{jsonResponse}{sizeWarning}";
     }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaGetTimesheetDescription)]
+    public static async Task<string> HalopsaGetTimesheet(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Timesheet ID")] int id,
+        [Description("Agent ID (0 = omit, uses current user context)")] int agentId = 0,
+        [Description("Date to retrieve (UTC ISO 8601, e.g. 2026-03-02T00:00:00Z)")] string? date = null) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+        var queryParams = new Dictionary<string, string>();
+        if (agentId != 0) queryParams["agent_id"] = agentId.ToString(CultureInfo.InvariantCulture);
+        if (!string.IsNullOrEmpty(date)) queryParams["date"] = date;
+        var result = await client.GetAsync<JsonElement>($"/api/Timesheet/{id}", queryParams.Count > 0 ? queryParams : null).ConfigureAwait(false);
+        return JsonSerializer.Serialize(result, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaUpdateTimesheetDescription)]
+    public static async Task<string> HalopsaUpdateTimesheet(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Timesheet ID (get from halopsa_get_timesheet or halopsa_query)")] int id,
+        [Description("Timezone offset in minutes from UTC. Pacific Standard=480, Pacific Daylight=420")] int utcOffset = 480,
+        [Description("Shift start time in UTC ISO 8601 (e.g. 2026-03-02T15:30:00Z)")] string? startTime = null,
+        [Description("Shift end time in UTC ISO 8601 (e.g. 2026-03-02T23:30:00Z)")] string? endTime = null,
+        [Description("Submit timesheet for manager approval")] bool submitApproval = false,
+        [Description("Approve the timesheet (manager action)")] bool approve = false,
+        [Description("Reject the timesheet (manager action)")] bool reject = false,
+        [Description("Revert a previously submitted approval")] bool revertApproval = false) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var current = await client.GetAsync<JsonElement>($"/api/Timesheet/{id}", null).ConfigureAwait(false);
+
+        // If the API returns id=0 the record doesn't exist — caller must use halopsa_create_timesheet first
+        if (current.TryGetProperty("id", out var idProp) && idProp.GetInt32() == 0) {
+            return JsonSerializer.Serialize(new {
+                success = false,
+                error = $"Timesheet record with ID {id} does not exist. Use halopsa_create_timesheet to create it first, then update with the returned ID."
+            }, IndentedJsonOptions);
+        }
+
+        // Deserialize to a mutable dictionary so we can merge overrides
+        var doc = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, JsonElement>>(
+            current.GetRawText()) ?? [];
+
+        if (startTime != null) doc["start_time"] = JsonSerializer.Deserialize<JsonElement>($"\"{startTime}\"");
+        if (endTime != null) doc["end_time"] = JsonSerializer.Deserialize<JsonElement>($"\"{endTime}\"");
+        if (submitApproval) doc["_submitapproval"] = JsonSerializer.Deserialize<JsonElement>("true");
+        if (approve) doc["_approve"] = JsonSerializer.Deserialize<JsonElement>("true");
+        if (reject) doc["_reject"] = JsonSerializer.Deserialize<JsonElement>("true");
+        if (revertApproval) doc["_revertapproval"] = JsonSerializer.Deserialize<JsonElement>("true");
+
+        var payload = new[] { doc };
+        var queryParams = new Dictionary<string, string> {
+            ["utcoffset"] = utcOffset.ToString(CultureInfo.InvariantCulture)
+        };
+        var result = await client.PostAsync<JsonElement>("/api/Timesheet", payload, queryParams).ConfigureAwait(false);
+
+        return JsonSerializer.Serialize(new {
+            success = true,
+            timesheet_id = id,
+            message = submitApproval ? $"Timesheet #{id} submitted for approval"
+                    : approve       ? $"Timesheet #{id} approved"
+                    : reject        ? $"Timesheet #{id} rejected"
+                    : revertApproval? $"Timesheet #{id} approval reverted"
+                    : $"Timesheet #{id} updated"
+        }, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaListTimesheetEventsDescription)]
+    public static async Task<string> HalopsaListTimesheetEvents(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Start datetime in UTC ISO 8601 (e.g. 2026-03-05T00:00:00Z)")] string? startDate = null,
+        [Description("End datetime in UTC ISO 8601 (e.g. 2026-03-06T00:00:00Z)")] string? endDate = null,
+        [Description("Filter by agent ID (0 = current user's entries)")] int agentId = 0) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var queryParams = new Dictionary<string, string>();
+        if (!string.IsNullOrEmpty(startDate)) queryParams["start_date"] = startDate;
+        if (!string.IsNullOrEmpty(endDate)) queryParams["end_date"] = endDate;
+        if (agentId != 0) queryParams["agent_id"] = agentId.ToString(CultureInfo.InvariantCulture);
+
+        var result = await client.GetAsync<JsonElement>("/api/TimesheetEvent", queryParams).ConfigureAwait(false);
+        var trimmed = TrimFields(result, HaloPsaMcpConstants.TimesheetEventSummaryFields);
+        return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaUpsertTimesheetEventDescription)]
+    public static async Task<string> HalopsaUpsertTimesheetEvent(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Event ID to update (0 = create new)")] int id = 0,
+        [Description("Ticket ID to link this time entry to")] int? ticketId = null,
+        [Description("Agent ID (defaults to current user if omitted)")] int? agentId = null,
+        [Description("Start datetime in UTC ISO 8601 (e.g. 2026-03-05T01:00:00Z)")] string? startDate = null,
+        [Description("End datetime in UTC ISO 8601 (e.g. 2026-03-05T01:30:00Z)")] string? endDate = null,
+        [Description("Time taken in hours (e.g. 0.5 = 30 min)")] double? timeTaken = null,
+        [Description("Note / description for this time entry")] string? note = null,
+        [Description("Subject / title for this time entry")] string? subject = null,
+        [Description("Client ID (0 = no client)")] int? clientId = null,
+        [Description("Site ID (0 = no site)")] int? siteId = null) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var request = new HaloPsa.Models.TimesheetEventRequest(
+            Id: id,
+            TicketId: ticketId,
+            AgentId: agentId.HasValue && agentId.Value != 0 ? agentId : null,
+            StartDate: startDate,
+            EndDate: endDate,
+            TimeTaken: timeTaken,
+            Note: note,
+            Subject: subject,
+            ClientId: clientId.HasValue && clientId.Value != 0 ? clientId : null,
+            SiteId: siteId.HasValue && siteId.Value != 0 ? siteId : null);
+
+        var payload = new[] { request };
+        var result = await client.PostAsync<JsonElement>("/api/TimesheetEvent", payload).ConfigureAwait(false);
+
+        int? eventId = null;
+        if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0) {
+            var first = result[0];
+            if (first.TryGetProperty("id", out var idProp)) eventId = idProp.GetInt32();
+        } else if (result.ValueKind == JsonValueKind.Object) {
+            if (result.TryGetProperty("id", out var idProp)) eventId = idProp.GetInt32();
+        }
+
+        return JsonSerializer.Serialize(new {
+            success = true,
+            event_id = eventId,
+            ticket_id = ticketId,
+            message = id == 0
+                ? $"Timesheet event created{(eventId.HasValue ? $" (ID: {eventId})" : "")}"
+                : $"Timesheet event #{id} updated"
+        }, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaCreateTimesheetDescription)]
+    public static async Task<string> HalopsaCreateTimesheet(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Agent ID (required)")] int agentId,
+        [Description("Date of the timesheet day in UTC ISO 8601 (e.g. 2026-03-04T00:00:00Z)")] string date,
+        [Description("Shift start time in UTC ISO 8601 (e.g. 2026-03-04T15:30:00Z for 7:30 AM Pacific)")] string? startTime = null,
+        [Description("Shift end time in UTC ISO 8601 (e.g. 2026-03-04T23:30:00Z for 3:30 PM Pacific)")] string? endTime = null,
+        [Description("Timezone offset in minutes from UTC. Pacific Standard=480, Pacific Daylight=420")] int utcOffset = 480) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        var entry = new Dictionary<string, object> {
+            ["date"] = date,
+            ["agent_id"] = agentId
+        };
+        if (startTime != null) entry["start_time"] = startTime;
+        if (endTime != null) entry["end_time"] = endTime;
+
+        var payload = new[] { entry };
+        var queryParams = new Dictionary<string, string> {
+            ["utcoffset"] = utcOffset.ToString(CultureInfo.InvariantCulture)
+        };
+        var result = await client.PostAsync<JsonElement>("/api/Timesheet", payload, queryParams).ConfigureAwait(false);
+        return JsonSerializer.Serialize(result, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
+    [Description(HaloPsaMcpConstants.HalopsaDeleteTimesheetEventDescription)]
+    public static async Task<string> HalopsaDeleteTimesheetEvent(
+        HaloPsaConfig config,
+        AppConfig appConfig,
+        IHttpContextAccessor? httpContextAccessor,
+        McpAuthenticationService? authService,
+        TokenStorageService? tokenStorage,
+        [Description("Timesheet event ID to delete")] int id) {
+        var client = TryCreateUserClient(config, httpContextAccessor, authService, tokenStorage);
+        if (client == null) {
+            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+        }
+
+        await client.DeleteAsync($"/api/TimesheetEvent/{id}").ConfigureAwait(false);
+        return JsonSerializer.Serialize(new {
+            success = true,
+            event_id = id,
+            message = $"Timesheet event #{id} deleted"
+        }, IndentedJsonOptions);
+    }
 #pragma warning restore CA1863
 }

@@ -11,8 +11,9 @@ public static class HaloPsaSchema
     /// Important notes about working with HaloPSA data, including datetime handling, filtering, and table relationships.
     /// </summary>
     public static readonly string[] ImportantNotes = [
-        "All datetimes are UTC — convert from user's timezone",
-        "Default scope: current calendar month unless user says otherwise",
+        "All datetimes in HaloPSA are stored in UTC",
+        "The user is in Pacific Time (America/Los_Angeles, UTC-8 standard / UTC-7 daylight saving). Always convert their local date/time references to UTC before building WHERE clauses. Example: if the user says 'today' and it is March 4th in Pacific time, the UTC range to search is '2026-03-04T08:00:00Z' to '2026-03-05T07:59:59Z'",
+        "Default scope: current calendar month in UTC unless user says otherwise",
         "FDeleted='False' is a STRING comparison, not integer",
         "Request type display name is in RTRequestType column (not rtdesc which is description)",
         "Requesttype column in faults is NUMERIC RTid — join with requesttype table for names",

@@ -69,7 +69,7 @@ internal static class HaloPsaMcpConstants
         "client lookups, agent stats, status breakdowns, satisfaction surveys, timesheet hours, and date-based analysis. " +
         "Executes a SQL SELECT query against the HaloPSA reporting database. " +
         "Call halopsa_get_schema first to get table names, column names, status IDs, and example queries. " +
-        "IMPORTANT: All datetimes are stored in UTC. Convert user's local timezone to UTC for WHERE clauses. " +
+        "IMPORTANT: All datetimes are stored in UTC. The user is in Pacific Time (UTC-8 standard / UTC-7 DST). Always convert their local date references to a UTC range for WHERE clauses (e.g. user's 'today March 4' = UTC range 2026-03-04T08:00:00Z to 2026-03-05T07:59:59Z). " +
         "DEFAULT SCOPE: Unless the user specifies otherwise, scope queries to the current calendar month in UTC. " +
         "Returns only the columns you SELECT, keeping responses compact. " +
         "Times out after 30 seconds for slow queries. " +

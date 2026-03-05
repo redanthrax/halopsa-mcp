@@ -19,7 +19,6 @@ internal static class HaloPsaMcpConstants
     internal static readonly CompositeFormat AuthFailedFormat = CompositeFormat.Parse(AuthFailedTemplate);
     internal static readonly CompositeFormat ListLargeResponseWarningFormat = CompositeFormat.Parse(ListLargeResponseWarningTemplate);
     internal static readonly CompositeFormat ActionsLargeResponseWarningFormat = CompositeFormat.Parse(ActionsLargeResponseWarningTemplate);
-
     internal static readonly string[] TicketSummaryFields = [
         "id", "faultid", "summary", "symptom", "details",
         "status_id", "status", "priority_id", "priority",
@@ -115,6 +114,66 @@ internal static class HaloPsaMcpConstants
         "List actions (notes/updates) for a specific HaloPSA ticket. Returns summary fields only. " +
         "WARN: Large responses (>100KB) may impact context - reduce count or narrow ticket scope. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaGetTimesheetDescription =
+        "Get a HaloPSA timesheet by ID, including all TimesheetEvent entries for that day. " +
+        "Returns hours worked, break time, agent info, and all events for the day. " +
+        "If id=0 is returned, no timesheet record exists for that day — use halopsa_create_timesheet to create one. " +
+        "To find a timesheet ID by date, use halopsa_query: " +
+        "SELECT TSid, TSunum, TSdate FROM timesheet WHERE TSunum = <agent_id> AND TSdate >= '2026-03-04T00:00:00Z' AND TSdate < '2026-03-05T00:00:00Z'. " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaCreateTimesheetDescription =
+        "Create a new HaloPSA timesheet day record for an agent. " +
+        "Use this when no timesheet record exists yet for a given date (i.e. halopsa_get_timesheet returns id=0). " +
+        "agent_id is required. date must be the start of the day in UTC ISO 8601 (e.g. 2026-03-04T00:00:00Z). " +
+        "start_time and/or end_time are optional UTC ISO 8601 (e.g. 2026-03-04T15:30:00Z for 7:30 AM Pacific). " +
+        "Posts as [{\"date\":\"2026-03-04T00:00:00.000Z\",\"agent_id\":5,\"start_time\":\"2026-03-04T15:30:00.000Z\"}] to POST /Timesheet?utcoffset=480. " +
+        "utcoffset is minutes from UTC (Pacific Standard=480, Pacific Daylight=420). " +
+        "Returns the created timesheet object including the new ID. " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaUpdateTimesheetDescription =
+        "Update a HaloPSA timesheet day record (shift times, submit/approve). " +
+        "IMPORTANT: The record must already exist. If you get error 'does not exist', use halopsa_create_timesheet first. " +
+        "Fetches the current timesheet by ID, applies your changes, and posts it back. " +
+        "utcoffset is the user's timezone offset in minutes from UTC (Pacific Standard = 480, Pacific Daylight = 420). " +
+        "Set submit_approval=true to submit the timesheet for manager approval. " +
+        "start_time and end_time must be UTC ISO 8601 (e.g. 2026-03-02T15:30:00Z for 7:30 AM Pacific). " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaUpsertTimesheetEventDescription =
+        "Create or update a timesheet event (time entry) in HaloPSA. " +
+        "To create: omit id or set id=0. To update: provide the existing event id. " +
+        "All datetimes must be in UTC ISO 8601 format (e.g. 2026-03-05T01:00:00Z). " +
+        "The user is in Pacific Time — convert their local times to UTC before calling. " +
+        "ticket_id links the entry to a ticket; timetaken is hours (e.g. 0.5 = 30 min). " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaListTimesheetEventsDescription =
+        "List timesheet events (time entries) for a date range. " +
+        "All datetimes in HaloPSA are UTC — convert Pacific Time to UTC before passing start_date/end_date. " +
+        "Returns event id, ticket_id, timetaken, start_date, end_date, note, and subject per entry. " +
+        "Use this to review logged time before creating or updating entries. " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal const string HalopsaDeleteTimesheetEventDescription =
+        "Delete a timesheet event (time entry) by ID. " +
+        "Use halopsa_list_timesheet_events or halopsa_get_timesheet to find event IDs first. " +
+        "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
+
+    internal static readonly string[] TimesheetEventSummaryFields = [
+        "id", "event_type", "subject", "start_date", "end_date",
+        "timetaken", "agent_id", "ticket_id", "note", "customer",
+        "site_id", "user_name", "charge_rate", "client_id",
+        "category1", "category2", "category3", "traveltime"
+    ];
+
+    internal static readonly string[] TimesheetSummaryFields = [
+        "id", "agent_id", "agent_name", "date", "start_time", "end_time",
+        "target_hours", "actual_hours", "break_hours", "work_hours",
+        "chargeable_hours", "unlogged_hours", "events"
+    ];
 
     // Error messages and responses
     internal const string QueryZeroRowsMessage = "Query returned 0 rows.\nRaw API response (for debugging):\n";

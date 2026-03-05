@@ -65,7 +65,7 @@ public static class HaloPsaSchema
             ["FBFaultID", "FBDate", "FBScore", "fbcomment"]
         ),
         ["timesheet"] = new TableInfo(
-            "Timesheet entries for work logged",
+            "Timesheet day records (SQL columns differ from API: TSid=id, TSunum=agent_id, TSdate=date, TSstartdate=start_time, TSenddate=end_time)",
             ["TSid", "TSunum", "TSdate", "TSstartdate", "TSenddate"]
         ),
         ["actions"] = new TableInfo(
@@ -141,7 +141,15 @@ ORDER BY u.uusername",
         @"SELECT TSid, TSunum, TSdate, TSstartdate, TSenddate
 FROM timesheet
 WHERE TSstartdate >= '2026-03-01T00:00:00Z'
-ORDER BY TSstartdate"
+ORDER BY TSstartdate",
+
+        @"-- Find timesheet ID for a specific agent and date (TSdate is UTC, TSunum is agent ID)
+SELECT TSid, TSunum, TSdate, TSstartdate, TSenddate
+FROM timesheet
+WHERE TSunum = <agent_id>
+AND TSdate >= '2026-03-02T00:00:00Z'
+AND TSdate < '2026-03-03T00:00:00Z'
+ORDER BY TSdate DESC"
     ];
 
     /// <summary>

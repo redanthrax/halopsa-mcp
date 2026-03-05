@@ -1,6 +1,6 @@
 # HaloPSA MCP Server
 
-MCP server for HaloPSA — query tickets, agents, clients, and reporting data via SQL or REST APIs.
+MCP server for HaloPSA — query tickets, agents, clients, and reporting data via SQL or REST APIs. Full read/write support for tickets, actions, and timesheets.
 
 ## Features
 
@@ -11,6 +11,8 @@ MCP server for HaloPSA — query tickets, agents, clients, and reporting data vi
 - Live schema with status IDs, agent IDs, and query examples
 - Automatic token refresh
 - Response trimming to minimize context usage
+- Full ticket lifecycle: create, read, update, add actions
+- Timesheet management: day records, time entries, submit/approve workflows
 
 ## HaloPSA Setup
 
@@ -117,14 +119,41 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 
 ## Available Tools
 
+### Core
+
 | Tool | Description |
 |------|-------------|
-| `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. Includes table relationship helpers for faults, actions, and timesheets. |
+| `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. All datetimes are UTC — convert local times before querying. |
 | `halopsa_get_schema` | Returns table/column names, live status IDs, agent IDs, and example queries. Call before writing SQL. |
-| `halopsa_list_tickets` | Search tickets by keyword or filters. Returns trimmed summary fields. |
+| `halopsa_auth_status` | Check current authentication status. Call first for any HaloPSA request. |
+
+### Tickets
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_tickets` | Search tickets by keyword or filters (`count`, `status`, `clientId`, `agentId`, `search`). Returns summary fields. |
 | `halopsa_get_ticket` | Get full details for a specific ticket by ID. |
-| `halopsa_list_actions` | List notes/updates for a specific ticket. Returns trimmed summary fields. |
-| `halopsa_auth_status` | Check current authentication status. |
+| `halopsa_create_ticket` | Create a new ticket (`summary`, `details`, `clientId`, `agentId`, `statusId`, `priorityId`, `ticketTypeId`, `siteId`). Use 0 for optional fields to use defaults. |
+| `halopsa_update_ticket` | Update an existing ticket by ID. Use 0 for optional fields to leave unchanged. |
+
+### Actions
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_actions` | List notes/updates for a specific ticket (`ticketId`, `count`). Returns summary fields. |
+| `halopsa_add_action` | Add a note/action to a ticket. Requires `ticketId`, `outcomeId` (get from `halopsa_get_outcomes`), optional `note`, `timeTaken`, `newStatus`, `hiddenFromUser`. |
+| `halopsa_get_outcomes` | Get valid outcome IDs for use with `halopsa_add_action`. |
+
+### Timesheets
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_get_timesheet` | Get a timesheet day record by ID, including all time entries. Returns id=0 if no record exists for that date — create one with `halopsa_create_timesheet`. |
+| `halopsa_create_timesheet` | Create a new timesheet day record for an agent (`agentId`, `date`, optional `startTime`, `endTime`, `utcOffset`). |
+| `halopsa_update_timesheet` | Update shift times or submit/approve a timesheet day record. Fetches current state and applies changes. Supports `startTime`, `endTime`, `submitApproval`, `approve`, `reject`, `revertApproval`. |
+| `halopsa_list_timesheet_events` | List time entries for a date range (`startDate`, `endDate`, optional `agentId`). All datetimes must be UTC. |
+| `halopsa_upsert_timesheet_event` | Create or update a time entry. Set `id=0` to create. Fields: `ticketId`, `agentId`, `startDate`, `endDate`, `timeTaken` (hours), `note`, `subject`, `clientId`, `siteId`. |
+| `halopsa_delete_timesheet_event` | Delete a time entry by ID. Use `halopsa_list_timesheet_events` to find IDs first. |
 
 ## Modes
 
@@ -158,12 +187,16 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 4. For timesheet and action analysis, use the relationship helpers in the schema
 5. The Report API may require specific permissions in HaloPSA
 
+**Timesheet record not found**:
+1. Use `halopsa_query` to look up the timesheet ID: `SELECT TSid, TSunum, TSdate FROM timesheet WHERE TSunum = <agent_id> AND TSdate >= '2026-03-04T00:00:00Z'`
+2. If no record exists for the date, call `halopsa_create_timesheet` before updating
+
 ## Table Relationships
 
 The schema includes helpers for common table relationships:
 
 - **faults.faultid** → **actions.faultid** (ticket actions and updates)
-- **faults.faultid** → **timesheet.faultid** (work time logged against tickets)  
+- **faults.faultid** → **timesheet.faultid** (work time logged against tickets)
 - **faults.faultid** → **feedback.FBFaultID** (customer satisfaction surveys)
 - **faults.Requesttype** → **requesttype.RTid** (request type configurations)
 

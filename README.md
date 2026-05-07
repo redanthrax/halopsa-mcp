@@ -126,6 +126,9 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 | `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. All datetimes are UTC — convert local times before querying. |
 | `halopsa_get_schema` | Returns table/column names, live status IDs, agent IDs, and example queries. Call before writing SQL. |
 | `halopsa_auth_status` | Check current authentication status. Call first for any HaloPSA request. |
+| `halopsa_whoami` | Decode the access token and return granted scopes plus identity claims (`agent_id`, `role`, `client_id`, etc). Useful right after login. |
+| `halopsa_capabilities` | Probe HaloPSA endpoints to discover which permissions/scopes the active token actually has. Returns an allow/deny map per capability. |
+| `halopsa_list_contracts` | List `/api/ClientContract` records (budget/usage hours). Filter by `clientId` or `search`. Use when the reporting DB is unavailable. |
 
 ### Tickets
 
@@ -154,6 +157,63 @@ Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret aut
 | `halopsa_list_timesheet_events` | List time entries for a date range (`startDate`, `endDate`, optional `agentId`). All datetimes must be UTC. |
 | `halopsa_upsert_timesheet_event` | Create or update a time entry. Set `id=0` to create. Fields: `ticketId`, `agentId`, `startDate`, `endDate`, `timeTaken` (hours), `note`, `subject`, `clientId`, `siteId`. |
 | `halopsa_delete_timesheet_event` | Delete a time entry by ID. Use `halopsa_list_timesheet_events` to find IDs first. |
+
+### Catalog
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_clients` | List clients (companies). Filter by `search`. |
+| `halopsa_get_client` | Get a single client by ID. |
+| `halopsa_list_sites` | List sites for a `clientId`. |
+| `halopsa_list_agents` | List internal agents. Filter by `search`. |
+| `halopsa_list_users` | List end users (customer contacts). Filter by `clientId` or `search`. |
+
+### Assets & Knowledge
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_assets` | List managed assets. Filter by `clientId` or `search`. |
+| `halopsa_get_asset` | Get a single asset by ID. |
+| `halopsa_list_kb_articles` | List knowledge base articles. Filter by `search`. |
+| `halopsa_get_kb_article` | Get a single KB article by ID. |
+
+### Reports & Surveys
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_reports` | List saved report definitions. |
+| `halopsa_get_report_definition` | Get the parameters/SQL/layout of a report by ID. |
+| `halopsa_run_report` | Run a saved report; pass `parameters` as a JSON object. |
+| `halopsa_list_surveys` | List satisfaction survey responses. Filter by `ticketId`. |
+| `halopsa_list_statuses` | List ticket statuses. Optional `type` filter. |
+| `halopsa_list_request_types` | List request types (categories). |
+
+### Projects & Scheduling
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_list_projects` | List projects. Filter by `clientId` or `search`. |
+| `halopsa_list_opportunities` | List sales opportunities. Filter by `clientId` or `search`. |
+| `halopsa_list_appointments` | List appointments. Filter by `agentId` and a UTC date range. |
+
+### Database Catalog
+
+The MCP server ships with an offline dump of the HaloPSA reporting database schema in `schema/catalog.json` (845 tables, 15 domains). These tools let the MCP client browse it cheaply when planning SQL — drill domains → tables → columns rather than dumping 3 MB into context.
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_db_domains` | List the 15 database domains with table counts and one-line descriptions. Call this first when planning a query. |
+| `halopsa_db_tables` | List tables (filterable by `domain` and substring `search`) with row counts, primary keys, and FK targets. |
+| `halopsa_db_columns` | Full column + FK detail for one table. Pass `columnSearch` to narrow on wide tables (FAULTS has 625 cols). |
+| `halopsa_db_search` | Find tables/columns whose name contains a term. Use when you don't know which table holds a concept. |
+
+The schema folder is auto-copied next to the binary at build/publish. Override the path with `HALOPSA_SCHEMA_PATH` if you keep it elsewhere.
+
+### Escape Hatch
+
+| Tool | Description |
+|------|-------------|
+| `halopsa_api_call` | Make a direct HaloPSA REST call against an arbitrary endpoint. Use for endpoints not covered by the typed tools. |
 
 ## Modes
 

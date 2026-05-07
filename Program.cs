@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using HaloPsaMcp.Modules.Mcp;
 using HaloPsaMcp.Modules;
 using HaloPsaMcp.Modules.Authentication.Endpoints;
@@ -5,99 +6,93 @@ using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Middleware;
 using HaloPsaMcp.Modules.Common.Models;
+using HaloPsaMcp.Modules.HaloPsa.Services;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 using Wolverine;
-using Wolverine.Http;
 
-// Load environment variables from .env file if present
 DotNetEnv.Env.TraversePath().Load();
 
-// Load and register configuration
 var appConfig = AppConfig.LoadFromEnvironment();
+var startedAt = DateTime.UtcNow;
+var logFormat = (Environment.GetEnvironmentVariable("LOG_FORMAT") ?? "text").ToLowerInvariant();
 
-// Parse command-line arguments to determine mode
 var isHttpMode = args.Contains("--http");
 
 if (isHttpMode) {
-    // HTTP Mode (Production): OAuth server with Bearer authentication
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, config) => config
-        .MinimumLevel.Information()
-        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-        .MinimumLevel.Override("HaloPsaMcp.Modules.Authentication", LogEventLevel.Debug)
-        .MinimumLevel.Override("HaloPsaMcp.Modules.HaloPsa", LogEventLevel.Debug)
-        .MinimumLevel.Override("HaloPsaMcp.Modules.Common", LogEventLevel.Debug)
-        .Enrich.FromLogContext()
-        .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture));
+    builder.Host.UseSerilog((context, config) => {
+        config
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            .MinimumLevel.Override("HaloPsaMcp.Modules.Authentication", LogEventLevel.Debug)
+            .MinimumLevel.Override("HaloPsaMcp.Modules.HaloPsa", LogEventLevel.Debug)
+            .MinimumLevel.Override("HaloPsaMcp.Modules.Common", LogEventLevel.Debug)
+            .Enrich.FromLogContext();
+        if (logFormat == "json") {
+            config.WriteTo.Console(new JsonFormatter(renderMessage: true));
+        } else {
+            config.WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture);
+        }
+    });
 
-    // Register appConfig singleton (loaded from environment)
     builder.Services.AddSingleton(appConfig);
-
-    // Register modules
     builder.Services.AddAllModules(builder.Configuration);
     builder.Services.AddHttpClient();
 
-    // Configure Kestrel
+    // Give in-flight requests a chance to drain when k8s/docker sends SIGTERM.
+    builder.Services.Configure<HostOptions>(o => {
+        o.ShutdownTimeout = TimeSpan.FromSeconds(30);
+    });
+
+    // Rate limiting on OAuth endpoints — defends /authorize, /token, /register
+    // against brute-force PKCE / DCR-flooding attacks.
+    builder.Services.AddRateLimiter(options => {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("oauth", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon",
+                _ => new FixedWindowRateLimiterOptions {
+                    PermitLimit = 30,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+        options.AddPolicy("register", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon",
+                _ => new FixedWindowRateLimiterOptions {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+    });
     builder.WebHost.ConfigureKestrel(options => {
         options.ListenAnyIP(appConfig.HttpPort);
     });
 
-    // Configure Wolverine with handler discovery
+    // Wolverine handler discovery — IMessageBus routes MCP tool invocations
+    // to the static Handle methods in Modules/HaloPsa/Handlers.
     builder.Host.UseWolverine(opts => {
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
-        opts.Services.AddWolverineHttp();
     });
 
-    // Configure MCP server with HTTP transport and per-session authentication
     builder.Services.AddMcpServer()
-        .WithHttpTransport(options => {
-            // Configure per-session options based on the authenticated user
-            options.ConfigureSessionOptions = async (httpContext, mcpOptions, cancellationToken) => {
-                // Extract Bearer token from Authorization header
-                var authHeader = httpContext.Request.Headers.Authorization.ToString();
-                if (string.IsNullOrEmpty(authHeader)
-                    || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
-                    return; // No token, let middleware handle 401
-                }
-
-                var token = authHeader.Substring(7); // Remove "Bearer " prefix
-
-                // Validate token against HaloPSA and get user info
-                var authService =
-                    httpContext.RequestServices.GetRequiredService<McpAuthenticationService>();
-
-                var isValid = await authService.ValidateTokenAsync(token).ConfigureAwait(false);
-                if (!isValid) {
-                    return; // Invalid token, let middleware handle 401
-                }
-
-                // Get token metadata from storage
-                var tokenStorage = httpContext.RequestServices.GetRequiredService<TokenStorageService>();
-                var userEntry = tokenStorage.GetToken(token);
-
-                // Store token info in HttpContext for tool handlers to access
-                authService.StoreTokenInContext(
-                    httpContext,
-                    token,
-                    userEntry?.RefreshToken,
-                    userEntry?.ExpiresAt
-                );
-            };
-        })
+        .WithHttpTransport()
         .WithTools<HaloPsaMcpTools>();
 
     var app = builder.Build();
 
-    // Health check — no auth required (used by AKS liveness/readiness probes)
-    app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+    app.UseRateLimiter();
 
-    // OAuth endpoints — no auth required (they are the auth flow)
+    MapHealthEndpoints(app, startedAt);
+
     app.MapOAuthEndpoints();
 
-    // MCP endpoint — Bearer token required, scoped middleware
     app.UseWhen(
         ctx => ctx.Request.Path.StartsWithSegments("/mcp"),
         branch => {
@@ -113,29 +108,46 @@ if (isHttpMode) {
 
     await app.RunAsync().ConfigureAwait(false);
 } else {
-    // Stdio Mode (Development): MCP over stdin/stdout for desktop MCP client,
-    // plus a background HTTP server for OAuth login and token refresh.
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, config) => config
-        .MinimumLevel.Information()
-        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-        .Enrich.FromLogContext()
-        .WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose, formatProvider: System.Globalization.CultureInfo.InvariantCulture)
-        .WriteTo.File("logs/mcp.log", rollingInterval: RollingInterval.Day, formatProvider: System.Globalization.CultureInfo.InvariantCulture));
+    builder.Host.UseSerilog((context, config) => {
+        config
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            .Enrich.FromLogContext();
+        if (logFormat == "json") {
+            config.WriteTo.Console(new JsonFormatter(renderMessage: true), standardErrorFromLevel: LogEventLevel.Verbose);
+        } else {
+            config.WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose, formatProvider: System.Globalization.CultureInfo.InvariantCulture);
+        }
+        config.WriteTo.File("logs/mcp.log", rollingInterval: RollingInterval.Day, formatProvider: System.Globalization.CultureInfo.InvariantCulture);
+    });
 
     builder.Services.AddSingleton(appConfig);
-
-    // Register modules
     builder.Services.AddAllModules(builder.Configuration);
     builder.Services.AddHttpClient();
 
-    builder.WebHost.ConfigureKestrel(options => {
-        options.ListenAnyIP(appConfig.HttpPort);
+    builder.Services.Configure<HostOptions>(o => {
+        o.ShutdownTimeout = TimeSpan.FromSeconds(30);
     });
 
-    // MCP over stdio for desktop MCP client
+    var actualHttpPort = ProbePort(appConfig.HttpPort);
+    if (actualHttpPort != appConfig.HttpPort) {
+        Log.Warning(
+            "Port {Port} is in use; falling back to ephemeral port {Fallback}. " +
+            "OAuth login URL will not match AUTH_BASE_URL — fix the port conflict and restart for re-auth to work.",
+            appConfig.HttpPort, actualHttpPort);
+    }
+
+    builder.WebHost.ConfigureKestrel(options => {
+        options.ListenAnyIP(actualHttpPort);
+    });
+
+    builder.Host.UseWolverine(opts => {
+        opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+    });
+
     builder.Services.AddMcpServer()
         .WithStdioServerTransport()
         .WithTools<HaloPsaMcpTools>();
@@ -143,15 +155,65 @@ if (isHttpMode) {
     var app = builder.Build();
 
     app.MapOAuthEndpoints();
-    app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+    MapHealthEndpoints(app, startedAt);
 
-    Log.Information("OAuth server available at http://localhost:{Port}/login for re-authentication", appConfig.HttpPort);
+    Log.Information("OAuth server available at http://localhost:{Port}/login for re-authentication", actualHttpPort);
 
+    await app.RunAsync().ConfigureAwait(false);
+}
+
+static void MapHealthEndpoints(WebApplication app, DateTime startedAt) {
+    // Liveness — process is alive. K8s restarts on failure; should only fail
+    // when the process is genuinely wedged. Always 200 once Kestrel is up.
+    app.MapGet("/health", () => Results.Ok(new {
+        status = "alive",
+        uptime_seconds = (long)(DateTime.UtcNow - startedAt).TotalSeconds
+    }));
+
+    // Readiness — should this pod receive traffic? Returns 503 + details when
+    // a critical dependency is missing. Currently no dependency is critical
+    // enough at runtime to fail readiness; the schema catalog is informational
+    // (its absence degrades the halopsa_db_* tools but the server still works).
+    app.MapGet("/ready", (SchemaCatalogService schema, TokenStorageService tokens) => {
+        var checks = new {
+            schema_catalog = new {
+                healthy = schema.IsLoaded,
+                table_count = schema.TableCount,
+                dumped_at = schema.DumpedAt
+            },
+            token_storage = new {
+                healthy = true,
+                session_count = tokens.SessionCount,
+                active_sessions = tokens.ActiveSessionCount
+            }
+        };
+
+        // token_storage is the only critical check today. Add Redis/DB checks
+        // here when shared backends land.
+        var ready = checks.token_storage.healthy;
+        var status = ready
+            ? (schema.IsLoaded ? "ready" : "degraded")
+            : "not_ready";
+
+        return Results.Json(new {
+            status,
+            uptime_seconds = (long)(DateTime.UtcNow - startedAt).TotalSeconds,
+            checks
+        }, statusCode: ready ? 200 : 503);
+    });
+}
+
+static int ProbePort(int preferred) {
     try {
-        await app.RunAsync().ConfigureAwait(false);
-    } catch (IOException ex) when (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase)) {
-        Log.Error(ex, "HTTP server failed to start due to port conflict. MCP stdio server will continue without OAuth re-authentication.");
-        // Keep the application running for MCP stdio
-        await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+        var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferred);
+        probe.Start();
+        probe.Stop();
+        return preferred;
+    } catch (System.Net.Sockets.SocketException) {
+        var fallback = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        fallback.Start();
+        var port = ((System.Net.IPEndPoint)fallback.LocalEndpoint).Port;
+        fallback.Stop();
+        return port;
     }
 }

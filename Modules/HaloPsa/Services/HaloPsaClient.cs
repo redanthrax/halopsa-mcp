@@ -3,48 +3,32 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using HaloPsaMcp.Modules.Authentication.Models;
-using HaloPsaMcp.Modules.Common.Infrastructure;
 using HaloPsaMcp.Modules.HaloPsa.Models;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Services;
 
-internal class HaloPsaClient : IDisposable {
+internal class HaloPsaClient {
     private readonly HaloPsaConfig _config;
-    private readonly ITokenStore? _tokenStore;
     private readonly HttpClient _httpClient;
     private readonly ILogger<HaloPsaClient>? _logger;
-    private string? _clientCredentialsToken;
-    private DateTime? _clientCredentialsTokenExpiry;
-    private bool _disposed;
 
-    public HaloPsaClient(HaloPsaConfig config, ITokenStore? tokenStore = null, ILogger<HaloPsaClient>? logger = null) {
+    public HaloPsaClient(HaloPsaConfig config, HttpClient httpClient, ILogger<HaloPsaClient>? logger = null) {
         _config = config;
-        _tokenStore = tokenStore;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        _httpClient = httpClient;
         _logger = logger;
     }
 
-    private bool UsingAuthCode => !string.IsNullOrEmpty(_config.DirectToken) == false
-        && _tokenStore != null;
-
     public async Task<string> GetAccessTokenAsync() {
-        if (!string.IsNullOrEmpty(_config.DirectToken)) {
-            // Refresh if within 60 seconds of expiry
-            if (!string.IsNullOrEmpty(_config.DirectRefreshToken) &&
-                _config.DirectTokenExpiresAt.HasValue &&
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() >= _config.DirectTokenExpiresAt.Value - 60_000) {
-                await RefreshDirectTokenAsync().ConfigureAwait(false);
-            }
-            return _config.DirectToken;
+        if (string.IsNullOrEmpty(_config.DirectToken)) {
+            throw new InvalidOperationException(
+                "No user token available. Complete the OAuth flow before calling HaloPSA APIs.");
         }
-
-        if (UsingAuthCode && _tokenStore != null) {
-            return await GetTokenFromStoreAsync().ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(_config.DirectRefreshToken) &&
+            _config.DirectTokenExpiresAt.HasValue &&
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() >= _config.DirectTokenExpiresAt.Value - 60_000) {
+            await RefreshDirectTokenAsync().ConfigureAwait(false);
         }
-
-        throw new InvalidOperationException(
-            "No user token available. API calls must use an authenticated user token, " +
-            "not client credentials. Please complete the OAuth flow first.");
+        return _config.DirectToken;
     }
 
     private async Task RefreshDirectTokenAsync() {
@@ -94,50 +78,54 @@ internal class HaloPsaClient : IDisposable {
         );
     }
 
-    private async Task<string> GetTokenFromStoreAsync() {
-        var token = await _tokenStore!.GetTokenAsync("default").ConfigureAwait(false);
-        if (string.IsNullOrEmpty(token)) {
-            throw new InvalidOperationException("No authentication token found. Please authenticate.");
+    /// <summary>
+    /// Probe an endpoint with a HEAD-equivalent GET (top=1) and return the HTTP status without throwing.
+    /// Used by capability discovery to see which scopes the current token actually has.
+    /// </summary>
+    public async Task<int> ProbeAsync(string endpoint, CancellationToken cancellationToken = default) {
+        try {
+            var token = await GetAccessTokenAsync().ConfigureAwait(false);
+            var url = BuildUrl(endpoint, new Dictionary<string, string> { ["count"] = "1", ["page_size"] = "1" });
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+            var response = await _httpClient.SendAsync(request, cts.Token).ConfigureAwait(false);
+            return (int)response.StatusCode;
+        } catch (TaskCanceledException) {
+            return 408;
+        } catch (HttpRequestException) {
+            return 0;
+        } catch (InvalidOperationException) {
+            return 0;
         }
-        return token;
     }
 
-    private async Task<string> GetClientCredentialsTokenAsync() {
-        if (_clientCredentialsToken != null && _clientCredentialsTokenExpiry > DateTime.UtcNow) {
-            return _clientCredentialsToken;
+    /// <summary>
+    /// Probe a POST endpoint with a minimal body to detect write-scope grants (e.g. edit:reporting).
+    /// HaloPSA distinguishes read vs edit scopes — read:reporting allows GET /api/Report,
+    /// edit:reporting is required to POST /api/Report/run.
+    /// </summary>
+    public async Task<int> ProbePostAsync(string endpoint, object body, CancellationToken cancellationToken = default) {
+        try {
+            var token = await GetAccessTokenAsync().ConfigureAwait(false);
+            var url = BuildUrl(endpoint, null);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+            var response = await _httpClient.SendAsync(request, cts.Token).ConfigureAwait(false);
+            return (int)response.StatusCode;
+        } catch (TaskCanceledException) {
+            return 408;
+        } catch (HttpRequestException) {
+            return 0;
+        } catch (InvalidOperationException) {
+            return 0;
         }
-
-        if (string.IsNullOrEmpty(_config.ClientSecret)) {
-            throw new InvalidOperationException("Client secret required for client_credentials grant");
-        }
-
-        var tokenUrl = $"{_config.Url}/auth/token?tenant={Uri.EscapeDataString(_config.GetTenant())}";
-        var parameters = new Dictionary<string, string> {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = _config.ClientId,
-            ["client_secret"] = _config.ClientSecret,
-            ["scope"] = "all"
-        };
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl) {
-            Content = new FormUrlEncodedContent(parameters)
-        };
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) {
-            var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            throw new HttpRequestException($"Authentication failed: {response.StatusCode} - {error}");
-        }
-
-        var tokenResponse = await JsonSerializer.DeserializeAsync<TokenResponse>(
-            await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Invalid token response");
-
-        _clientCredentialsToken = tokenResponse.access_token;
-        _clientCredentialsTokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.expires_in - 60);
-
-        return _clientCredentialsToken;
     }
 
     public async Task<T> GetAsync<T>(string endpoint, Dictionary<string, string>? queryParams = null, CancellationToken cancellationToken = default) {
@@ -341,17 +329,4 @@ internal class HaloPsaClient : IDisposable {
         return text;
     }
 
-    public void Dispose() {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing) {
-        if (!_disposed) {
-            if (disposing) {
-                _httpClient?.Dispose();
-            }
-            _disposed = true;
-        }
-    }
 }

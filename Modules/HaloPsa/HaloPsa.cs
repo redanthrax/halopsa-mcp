@@ -1,5 +1,4 @@
 using HaloPsaMcp.Modules.Common.Models;
-#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
 using HaloPsaMcp.Modules.HaloPsa.Models;
 using HaloPsaMcp.Modules.HaloPsa.Services;
 using Microsoft.Extensions.Configuration;
@@ -8,28 +7,23 @@ using Microsoft.Extensions.DependencyInjection;
 namespace HaloPsaMcp.Modules.HaloPsa;
 
 /// <summary>
-/// HaloPSA module registration - API client and queries
+/// HaloPSA module registration — API client and queries.
 /// </summary>
-internal class HaloPsaModuleRegistrar : IModuleRegistrar
-{
-    public int Priority => 3; // Register third - depends on Common
+internal class HaloPsaModuleRegistrar : IModuleRegistrar {
+    public int Priority => 3;
 
-    public void Register(IServiceCollection services, IConfiguration configuration)
-    {
-        // Get AppConfig from DI (registered in Program.cs)
-        var serviceProvider = services.BuildServiceProvider();
-        var appConfig = serviceProvider.GetRequiredService<AppConfig>();
+    public void Register(IServiceCollection services, IConfiguration configuration) {
+        services.AddSingleton<HaloPsaConfig>(sp => {
+            var appConfig = sp.GetRequiredService<AppConfig>();
+            return new HaloPsaConfig {
+                Url = appConfig.HaloPsa.Url,
+                ClientId = appConfig.HaloPsa.ClientId,
+                ClientSecret = appConfig.HaloPsa.ClientSecret
+            };
+        });
 
-        // Register HaloPSA configuration
-        var haloPsaConfig = new HaloPsaConfig
-        {
-            Url = appConfig.HaloPsa.Url,
-            ClientId = appConfig.HaloPsa.ClientId,
-            ClientSecret = appConfig.HaloPsa.ClientSecret
-        };
-        services.AddSingleton(haloPsaConfig);
-
-        // Register HaloPsaClientFactory as scoped (per-request)
+        services.AddHttpClient("halopsa", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddScoped<HaloPsaClientFactory>();
+        services.AddSingleton<SchemaCatalogService>();
     }
 }

@@ -11,7 +11,7 @@ internal static class ApiCallQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         object? bodyObj = null;
         if (!string.IsNullOrEmpty(query.Body))
         {

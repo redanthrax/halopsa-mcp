@@ -1,5 +1,6 @@
-#pragma warning disable IDE0005 // Using directive is unnecessary - false positive
+#pragma warning disable IDE0005
 using HaloPsaMcp.Modules.Authentication.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 #pragma warning restore IDE0005
@@ -7,19 +8,24 @@ using Microsoft.Extensions.DependencyInjection;
 namespace HaloPsaMcp.Modules.Authentication;
 
 /// <summary>
-/// Authentication module registration - OAuth, token validation, middleware
+/// Authentication module registration — OAuth, DCR store, token storage,
+/// background cleanup, and DataProtection.
 /// </summary>
-internal class AuthenticationModuleRegistrar : IModuleRegistrar
-{
-    public int Priority => 2; // Register second - depends on Common
+internal class AuthenticationModuleRegistrar : IModuleRegistrar {
+    public int Priority => 2;
 
-    public void Register(IServiceCollection services, IConfiguration configuration)
-    {
-        // Register authentication services
-        services.AddSingleton<McpAuthenticationService>();
+    public void Register(IServiceCollection services, IConfiguration configuration) {
+        // DataProtection (encrypts tokens.json + clients.json at rest).
+        // Keys persisted to ./data/dp-keys so they survive restarts.
+        var keyDir = Environment.GetEnvironmentVariable("HALOPSA_DPKEY_DIR") ?? "./data/dp-keys";
+        Directory.CreateDirectory(keyDir);
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keyDir));
+
         services.AddSingleton<TokenStorageService>();
-
-        // HttpContextAccessor needed for per-user token retrieval
+        services.AddSingleton<ClientRegistrationStore>();
+        services.AddSingleton<McpAuthenticationService>();
+        services.AddHostedService<CleanupHostedService>();
         services.AddHttpContextAccessor();
     }
 }

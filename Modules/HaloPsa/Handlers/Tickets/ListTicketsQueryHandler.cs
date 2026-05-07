@@ -12,7 +12,7 @@ internal static class ListTicketsQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
 
         var queryParams = new Dictionary<string, string>
         {

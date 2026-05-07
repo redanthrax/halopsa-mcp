@@ -10,7 +10,7 @@ internal static class GetKbArticleHandler {
         GetKbArticleQuery query,
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor) {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var result = await client.GetAsync<JsonElement>($"/api/KBArticle/{query.Id}", null).ConfigureAwait(false);
         return new GetKbArticleResult(result);
     }

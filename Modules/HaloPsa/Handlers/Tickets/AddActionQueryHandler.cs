@@ -11,9 +11,9 @@ internal static class AddActionQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var payload = new[] { query.Request };
         var result = await client.PostAsync<JsonElement>("/api/Actions", payload).ConfigureAwait(false);
-        return new AddActionResult(result);
+        return new AddActionResult(Data: result);
     }
 }

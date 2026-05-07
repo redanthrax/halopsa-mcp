@@ -16,31 +16,34 @@ COPY . ./
 # Build and publish the application
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+# Runtime stage — alpine cuts ~100 MB vs the default debian image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
-# Install curl for health checks (as root before switching user)
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# curl for HEALTHCHECK; cleaned via apk in same layer
+RUN apk add --no-cache curl
 
-# Create non-root user
-RUN groupadd -g 1001 dotnet && useradd -r -u 1001 -g dotnet dotnet
+# Non-root user (alpine has addgroup/adduser, not groupadd/useradd)
+RUN addgroup -g 1001 -S dotnet && adduser -S -u 1001 -G dotnet dotnet
 
 WORKDIR /app
-
-# Copy published application
 COPY --from=builder /app/publish ./
 
-# Create data directory for token storage
+# Token storage volume mount point
 RUN mkdir -p /app/data && chown -R dotnet:dotnet /app/data
 
 USER dotnet
 
-EXPOSE 3000
+# Default to JSON-formatted logs in containerized deployments. Override
+# with LOG_FORMAT=text for human-readable console output during debugging.
+ENV LOG_FORMAT=json
 
+EXPOSE 3000
 VOLUME ["/app/data"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+# Use /ready so docker reports unhealthy if a critical dependency
+# (token storage) fails. Schema catalog absence shows up as "degraded"
+# in the body but still passes the probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -fsS http://localhost:3000/ready || exit 1
 
-# Run in HTTP mode for production (OAuth + MCP endpoints)
 ENTRYPOINT ["dotnet", "HaloPsaMcp.dll", "--http"]

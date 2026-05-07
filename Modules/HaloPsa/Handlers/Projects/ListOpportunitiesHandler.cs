@@ -10,7 +10,7 @@ internal static class ListOpportunitiesHandler {
         ListOpportunitiesQuery query,
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor) {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var queryParams = new Dictionary<string, string> {
             ["count"] = Math.Min(query.Count, 100).ToString(CultureInfo.InvariantCulture)
         };

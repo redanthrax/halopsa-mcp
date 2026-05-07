@@ -11,4 +11,6 @@ internal class PendingAuth {
     public required string ClientCode { get; init; }
     public required long Expires { get; init; }
     public bool IsDirectLogin { get; init; }
+    /// <summary>OAuth client_id of the requesting MCP client (DCR-issued).</summary>
+    public string? ClientId { get; init; }
 }

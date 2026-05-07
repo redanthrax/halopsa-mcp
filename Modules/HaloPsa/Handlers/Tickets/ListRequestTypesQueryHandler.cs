@@ -11,7 +11,7 @@ internal static class ListRequestTypesQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var queryParams = new Dictionary<string, string>();
         if (query.VisibleOnly)
         {

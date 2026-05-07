@@ -76,9 +76,10 @@ internal static class HaloPsaMcpConstants
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
 
     internal const string HalopsaGetSchemaDescription =
-        "Get the HaloPSA database schema, lookup IDs, and query best practices for halopsa_query. " +
-        "ALWAYS call this before writing SQL queries. Returns table/column names, " +
-        "status IDs, request type IDs, and example queries. " +
+        "Get the HaloPSA database schema cheat sheet plus live lookup IDs (statuses, agents). " +
+        "ALWAYS call this before writing SQL. Returns key tables, common joins, and example queries. " +
+        "For deeper schema browsing — full column lists, foreign keys, or finding tables by keyword — " +
+        "use the catalog tools: halopsa_db_domains, halopsa_db_tables, halopsa_db_columns, halopsa_db_search. " +
         "If the result says NOT AUTHENTICATED, show the user the login URL from the response.";
 
     internal const string HalopsaAuthStatusDescription =

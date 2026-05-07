@@ -10,7 +10,7 @@ internal static class ListContractsHandler {
         ListContractsQuery query,
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor) {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var queryParams = new Dictionary<string, string> {
             ["count"] = Math.Min(query.Count, 100).ToString(CultureInfo.InvariantCulture)
         };
@@ -23,7 +23,7 @@ internal static class ListContractsHandler {
             queryParams["search"] = query.Search;
         }
 
-        var result = await client.GetAsync<JsonElement>("/api/SLAService", queryParams).ConfigureAwait(false);
+        var result = await client.GetAsync<JsonElement>("/api/ClientContract", queryParams).ConfigureAwait(false);
         return new ListContractsResult(result);
     }
 }

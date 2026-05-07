@@ -1,107 +1,69 @@
-using System.Collections.Concurrent;
-using HaloPsaMcp.Modules.HaloPsa.Models;
-
 namespace HaloPsaMcp.Modules.Authentication.Services;
 
 /// <summary>
-/// Service to manage user token storage and validation for MCP authentication
+/// Validates MCP session tokens against the local TokenStorageService.
+/// Validation is purely local — opaque mcp_ tokens are issued by us and
+/// don't require a round-trip to HaloPSA. The underlying HaloPSA token
+/// is exposed to downstream tool handlers via HttpContext.Items.
 /// </summary>
 internal class McpAuthenticationService {
-    private const string UserTokenKey = "mcp.user_token";
-    private const string UserRefreshTokenKey = "mcp.user_refresh_token";
-    private const string UserTokenExpiryKey = "mcp.user_token_expiry";
+    public const string McpTokenContextKey = "mcp.session_token";
+    public const string HaloPsaTokenContextKey = "mcp.halopsa_token";
+    public const string HaloPsaRefreshContextKey = "mcp.halopsa_refresh";
+    public const string HaloPsaExpiryContextKey = "mcp.halopsa_expiry";
 
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly HaloPsaConfig _haloPsaConfig;
+    private readonly TokenStorageService _storage;
     private readonly ILogger<McpAuthenticationService> _logger;
-    private static readonly ConcurrentDictionary<string, long> ValidatedTokenCache = new();
-    private const int TokenValidationCacheTtlMs = 5 * 60 * 1000;
 
     public McpAuthenticationService(
-        IHttpClientFactory httpClientFactory,
-        HaloPsaConfig haloPsaConfig,
+        TokenStorageService storage,
         ILogger<McpAuthenticationService> logger) {
-        _httpClientFactory = httpClientFactory;
-        _haloPsaConfig = haloPsaConfig;
+        _storage = storage;
         _logger = logger;
     }
 
-    /// <summary>
-    /// Validate a token against HaloPSA API (with 5-minute caching).
-    /// </summary>
-    public async Task<bool> ValidateTokenAsync(string token) {
-        var (isValid, _) = await ValidateTokenWithCacheInfoAsync(token).ConfigureAwait(false);
-        return isValid;
+    /// <summary>Validates the supplied MCP session token (local lookup only).</summary>
+    public Task<bool> ValidateTokenAsync(string mcpToken) {
+        return Task.FromResult(_storage.IsValidSession(mcpToken));
     }
 
-    /// <summary>
-    /// Validate a token and return whether the result came from the local cache.
-    /// </summary>
-    public async Task<(bool IsValid, bool FromCache)> ValidateTokenWithCacheInfoAsync(string token) {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (ValidatedTokenCache.TryGetValue(token, out var cachedExpiry) && now < cachedExpiry) {
-            return (true, true);
-        }
-
-        try {
-            var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{_haloPsaConfig.Url}/api/Agent/me?tenant={Uri.EscapeDataString(_haloPsaConfig.GetTenant())}");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-            var response = await httpClient.SendAsync(request).ConfigureAwait(false);
-
-            if (response.IsSuccessStatusCode) {
-                ValidatedTokenCache[token] = now + TokenValidationCacheTtlMs;
-                _logger.LogDebug("Token validated against HaloPSA (live check)");
-                return (true, false);
-            }
-
-            _logger.LogWarning("Token validation failed — HaloPSA returned {StatusCode}", response.StatusCode);
-            ValidatedTokenCache.TryRemove(token, out _);
-            return (false, false);
-        } catch (Exception ex) {
-            _logger.LogError(ex, "Token validation request failed");
-            ValidatedTokenCache.TryRemove(token, out _);
-            return (false, false);
-        }
+    public Task<(bool IsValid, bool FromCache)> ValidateTokenWithCacheInfoAsync(string mcpToken) {
+        // Always "from cache" — local lookup, no remote call ever made.
+        return Task.FromResult((_storage.IsValidSession(mcpToken), true));
     }
 
-    /// <summary>
-    /// Store user token information in HttpContext
-    /// </summary>
-    public void StoreTokenInContext(HttpContext context, string accessToken, string? refreshToken, long? expiresAt) {
-        context.Items[UserTokenKey] = accessToken;
-        context.Items[UserRefreshTokenKey] = refreshToken;
-        context.Items[UserTokenExpiryKey] = expiresAt;
+    /// <summary>Records the MCP session and HaloPSA tokens in the request context.</summary>
+    public void StoreSessionInContext(HttpContext context, string mcpToken, string haloPsaToken, string? refreshToken, long? expiresAt) {
+        context.Items[McpTokenContextKey] = mcpToken;
+        context.Items[HaloPsaTokenContextKey] = haloPsaToken;
+        context.Items[HaloPsaRefreshContextKey] = refreshToken;
+        context.Items[HaloPsaExpiryContextKey] = expiresAt;
     }
 
-    /// <summary>
-    /// Retrieve user token from HttpContext
-    /// </summary>
-    public string? GetTokenFromContext(HttpContext context) {
-        return context.Items[UserTokenKey] as string;
-    }
+    public string? GetMcpTokenFromContext(HttpContext context) =>
+        context.Items[McpTokenContextKey] as string;
+
+    public string? GetTokenFromContext(HttpContext context) =>
+        context.Items[HaloPsaTokenContextKey] as string;
+
+    public string? GetRefreshTokenFromContext(HttpContext context) =>
+        context.Items[HaloPsaRefreshContextKey] as string;
+
+    public long? GetTokenExpiryFromContext(HttpContext context) =>
+        context.Items[HaloPsaExpiryContextKey] as long?;
 
     /// <summary>
-    /// Retrieve user refresh token from HttpContext
+    /// Update token info in context after a refresh. Note this only updates the
+    /// in-flight HttpContext; persistence is done by HaloPsaClientFactory.
     /// </summary>
-    public string? GetRefreshTokenFromContext(HttpContext context) {
-        return context.Items[UserRefreshTokenKey] as string;
+    public void StoreTokenInContext(HttpContext context, string newHaloAccess, string? newRefresh, long? newExpiresAt) {
+        context.Items[HaloPsaTokenContextKey] = newHaloAccess;
+        context.Items[HaloPsaRefreshContextKey] = newRefresh;
+        context.Items[HaloPsaExpiryContextKey] = newExpiresAt;
     }
 
-    /// <summary>
-    /// Retrieve user token expiry from HttpContext
-    /// </summary>
-    public long? GetTokenExpiryFromContext(HttpContext context) {
-        return context.Items[UserTokenExpiryKey] as long?;
-    }
-
-    /// <summary>
-    /// Invalidate a token in the cache
-    /// </summary>
+    /// <summary>No-op kept for source compatibility — caches are gone now.</summary>
     public void InvalidateToken(string token) {
-        ValidatedTokenCache.TryRemove(token, out _);
+        _logger.LogDebug("InvalidateToken called for {Hint} (no cache to invalidate)", SecretRedactor.Hint(token));
     }
 }

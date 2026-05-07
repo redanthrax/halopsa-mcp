@@ -10,7 +10,7 @@ internal static class RunReportHandler {
         RunReportQuery query,
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor) {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var bodyObj = new Dictionary<string, object> { ["id"] = query.Id };
 
         if (!string.IsNullOrEmpty(query.Parameters)) {

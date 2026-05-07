@@ -11,8 +11,8 @@ internal static class CreateTicketQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         var result = await client.PostAsync<JsonElement>("/api/Tickets", query.Request).ConfigureAwait(false);
-        return new CreateTicketResult(result);
+        return new CreateTicketResult(Data: result);
     }
 }

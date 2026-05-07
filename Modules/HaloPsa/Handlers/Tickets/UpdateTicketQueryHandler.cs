@@ -12,7 +12,7 @@ internal static class UpdateTicketQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
-        var client = factory.CreateClient(contextAccessor.HttpContext);
+        var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
 
         var request = query.Request;
 
@@ -37,6 +37,6 @@ internal static class UpdateTicketQueryHandler
 
         var payload = new[] { request };
         var result = await client.PostAsync<JsonElement>("/api/Tickets", payload).ConfigureAwait(false);
-        return new UpdateTicketResult(result);
+        return new UpdateTicketResult(Data: result);
     }
 }

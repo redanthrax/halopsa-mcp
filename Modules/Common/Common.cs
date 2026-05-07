@@ -1,26 +1,15 @@
-using HaloPsaMcp.Modules.Common.Infrastructure;
-#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
-using HaloPsaMcp.Modules.Common.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HaloPsaMcp.Modules.Common;
 
 /// <summary>
-/// Common module registration - shared services and infrastructure
+/// Common module registration — placeholder for future shared services.
 /// </summary>
-internal class CommonModuleRegistrar : IModuleRegistrar
-{
-    public int Priority => 1; // Register first - shared infrastructure
+internal class CommonModuleRegistrar : IModuleRegistrar {
+    public int Priority => 1;
 
-    public void Register(IServiceCollection services, IConfiguration configuration)
-    {
-        // Get AppConfig from DI (registered in Program.cs)
-        var serviceProvider = services.BuildServiceProvider();
-        var appConfig = serviceProvider.GetRequiredService<AppConfig>();
-
-        // Register token store
-        services.AddSingleton<ITokenStore>(sp =>
-            new FileTokenStore(appConfig.HaloPsa.TokenStorePath));
+    public void Register(IServiceCollection services, IConfiguration configuration) {
+        // No shared services today; left as the entry point for cross-module infrastructure.
     }
 }

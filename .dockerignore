@@ -19,6 +19,7 @@ data/
 !appsettings.json
 !global.json
 !*.csproj
+!schema/catalog.json
 *.key
 *.pem
 *.pfx

@@ -150,10 +150,16 @@ internal static class HaloPsaMcpConstants
 
     internal static string AuthErrorMessage(AppConfig appConfig)
     {
-        // Use neutral phrasing to avoid triggering MCP client's built-in auth override responses.
-        // Return markdown link for rendering.
         var url = GetLoginUrl(appConfig);
-        return $"HaloPSA access needed. [Sign in here]({url})";
+        // For localhost (dev), use plain text to avoid suppression; for public URLs, use markdown link.
+        if (url.StartsWith("http://localhost") || url.StartsWith("https://localhost"))
+        {
+            return $"HaloPSA access needed. Open {url} in your browser to sign in.";
+        }
+        else
+        {
+            return $"HaloPSA access needed. [Sign in here]({url})";
+        }
     }
 
     private const string AuthNotice =

@@ -148,6 +148,9 @@ internal static class HaloPsaMcpConstants
         return false;
     }
 
+    internal static string AuthRequiredMessage =
+        "Authentication required. Please call halopsa_auth_status for login instructions.";
+
     internal static string AuthErrorMessage(AppConfig appConfig)
     {
         var url = GetLoginUrl(appConfig);

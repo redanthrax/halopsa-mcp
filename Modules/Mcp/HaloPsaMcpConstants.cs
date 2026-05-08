@@ -150,18 +150,10 @@ internal static class HaloPsaMcpConstants
 
     internal static string AuthErrorMessage(AppConfig appConfig)
     {
-        // Return a structured JSON envelope rather than imperative natural-language
-        // instructions. Imperative phrasing ("you MUST", "verbatim") in tool output
-        // matches prompt-injection patterns and gets suppressed by host LLMs;
-        // a stable machine-readable error code lets the host or operator prompt
-        // decide how to surface the login URL.
+        // Return plain text with the URL embedded to ensure LLMs surface it,
+        // as JSON structures may be treated as untrusted data and suppressed.
         var url = GetLoginUrl(appConfig);
-        return JsonSerializer.Serialize(new {
-            authenticated = false,
-            error = "NOT_AUTHENTICATED",
-            message = $"HaloPSA session is not authenticated. Sign in at: {url}",
-            login_url = url,
-        }, IndentedJsonOptions);
+        return $"HaloPSA session is not authenticated. Sign in at: {url}";
     }
 
     private const string AuthNotice =

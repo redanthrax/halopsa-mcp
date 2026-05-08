@@ -30,5 +30,6 @@ public class AuthErrorEnvelopeTests {
         Assert.DoesNotContain("verbatim", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("EXACTLY", json, StringComparison.Ordinal);
         Assert.DoesNotContain("do not substitute", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Sign in via the URL in login_url", json, StringComparison.Ordinal);
     }
 }

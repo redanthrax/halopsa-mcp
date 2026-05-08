@@ -110,6 +110,10 @@ halopsa:
   # External base URL for OAuth callbacks (e.g., https://halopsa-mcp.example.com)
   authBaseUrl: "http://localhost:3000"
   
+  # Public base URL for login links (users click this). Defaults to authBaseUrl.
+  # Set when externally reachable URL differs from OAuth base (e.g., behind reverse proxy).
+  publicBaseUrl: ""
+  
   # Token storage path (inside container)
   tokenStorePath: "/app/data/tokens.json"
   # DataProtection keys directory (encrypts tokens.json + clients.json at rest).

@@ -235,7 +235,7 @@ internal partial class HaloPsaMcpTools {
     }
 
     [McpServerTool]
-    [Description("Returns the login URL for this HaloPSA MCP server instance. The URL is server-specific (differs between local dev, staging, and production); call this rather than recalling a URL from a previous session.")]
+    [Description("Returns the public login URL for this HaloPSA MCP server instance. This is the URL users click in their browser to authenticate. The URL is server-specific (differs between local dev, staging, and production); call this rather than recalling a URL from a previous session.")]
     public static string HalopsaGetLoginUrl(AppConfig appConfig) {
         var url = HaloPsaMcpConstants.GetLoginUrl(appConfig);
         return JsonSerializer.Serialize(new {

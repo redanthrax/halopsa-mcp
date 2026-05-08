@@ -140,6 +140,7 @@ helm upgrade --install halopsa-mcp helm/halopsa-mcp/ \
   --set halopsa.url=https://your-tenant.halopsa.com \
   --set halopsa.clientId=your-client-id \
   --set halopsa.authBaseUrl=https://halopsa-mcp.example.com \
+  --set halopsa.publicBaseUrl=https://halopsa-mcp.example.com \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=halopsa-mcp.example.com \
   --set networkPolicy.enabled=true \
@@ -158,6 +159,7 @@ Production checklist:
 - [ ] `image.tag` pinned to a SemVer or digest, not `latest`
 - [ ] Image pulled from your private ACR (mirror from Docker Hub)
 - [ ] DataProtection keys backed by Azure Key Vault (see Limitations)
+- [ ] `halopsa.publicBaseUrl` set to the externally reachable URL (e.g., `https://your-domain.com`)
 
 ### Helm Values Reference
 
@@ -193,6 +195,7 @@ Production checklist:
 | `HALOPSA_DPKEY_DIR` | `./data/dp-keys` | DataProtection key ring |
 | `HTTP_PORT` | `3000` | Listener port |
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
+| `HALOPSA_PUBLIC_URL` | `${AUTH_BASE_URL}` | Public base URL for login links (defaults to `AUTH_BASE_URL`) |
 | `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
 | `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | When set, `/register` requires `Authorization: Bearer <token>`. **Set this for any internet-exposed deployment.** |
 | `MCP_READY_VERBOSE` | `0` | `1` exposes detailed `/ready` JSON for trusted scrapers |

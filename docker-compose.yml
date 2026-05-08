@@ -24,6 +24,7 @@ services:
       HALOPSA_DPKEY_DIR: /app/data/dp-keys
       HTTP_PORT: "3000"
       AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
+      HALOPSA_PUBLIC_URL: ${HALOPSA_PUBLIC_URL:-}
       # Gate /register (DCR). When set, clients must present this Bearer token.
       MCP_DCR_INITIAL_ACCESS_TOKEN: ${MCP_DCR_INITIAL_ACCESS_TOKEN:-}
       # Set to "1" only for trusted in-cluster scrape targets.

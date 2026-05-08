@@ -12,7 +12,14 @@ public class AuthErrorEnvelopeTests {
     };
 
     [Fact]
-    public void AuthErrorMessage_returns_markdown_with_clickable_link() {
+    public void AuthErrorMessage_returns_plain_text_for_localhost() {
+        var config = new AppConfig { AuthBaseUrl = "http://localhost:3000", HttpPort = 3000 };
+        var message = HaloPsaMcpConstants.AuthErrorMessage(config);
+        Assert.Equal("HaloPSA access needed. Open http://localhost:3000/login in your browser to sign in.", message);
+    }
+
+    [Fact]
+    public void AuthErrorMessage_returns_markdown_link_for_public_url() {
         var message = HaloPsaMcpConstants.AuthErrorMessage(MakeConfig());
         Assert.Equal("HaloPSA access needed. [Sign in here](https://mcp.example.com/login)", message);
     }

@@ -6,7 +6,7 @@ namespace HaloPsaMcp.Modules.Authentication.Handlers;
 /// <summary>
 /// Wolverine handlers for token management commands
 /// </summary>
-internal static class StoreUserTokenHandler {
+public static class StoreUserTokenHandler {
     /// <summary>
     /// Handle StoreUserTokenCommand - stores user token in HttpContext
     /// </summary>

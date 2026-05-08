@@ -9,7 +9,7 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 /// Use only for surfacing claims (scopes, agent_id, role) to the user; never for
 /// authorization decisions.
 /// </summary>
-internal static class JwtClaimsReader {
+public static class JwtClaimsReader {
     public static IReadOnlyDictionary<string, JsonElement>? TryReadClaims(string? jwt) {
         if (string.IsNullOrWhiteSpace(jwt)) {
             return null;

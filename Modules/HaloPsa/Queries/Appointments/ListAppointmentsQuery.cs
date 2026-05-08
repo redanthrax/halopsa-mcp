@@ -3,7 +3,7 @@ namespace HaloPsaMcp.Modules.HaloPsa.Queries.Appointments;
 /// <summary>
 /// Query to list appointments
 /// </summary>
-internal record ListAppointmentsQuery(
+public record ListAppointmentsQuery(
     int Count = 10,
     int? AgentId = null,
     string? StartDate = null,

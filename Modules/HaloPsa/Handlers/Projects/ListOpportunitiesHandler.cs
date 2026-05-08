@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Projects;
 
-internal static class ListOpportunitiesHandler {
+public static class ListOpportunitiesHandler {
     public static async Task<ListOpportunitiesResult> Handle(
         ListOpportunitiesQuery query,
         HaloPsaClientFactory factory,

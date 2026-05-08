@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Agents;
 
-internal static class ListAgentsQueryHandler
+public static class ListAgentsQueryHandler
 {
     public static async Task<ListAgentsResult> Handle(
         ListAgentsQuery query,

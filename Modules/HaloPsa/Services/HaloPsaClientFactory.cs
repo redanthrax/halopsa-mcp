@@ -9,7 +9,7 @@ namespace HaloPsaMcp.Modules.HaloPsa.Services;
 /// TokenStorageService.GetDefaultToken (stdio mode). On refresh both the
 /// in-flight HttpContext and the persistent TokenStorageService are updated.
 /// </summary>
-internal class HaloPsaClientFactory {
+public class HaloPsaClientFactory {
     private const string HttpClientName = "halopsa";
 
     private readonly HaloPsaConfig _baseConfig;

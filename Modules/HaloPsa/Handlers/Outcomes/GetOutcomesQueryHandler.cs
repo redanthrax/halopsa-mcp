@@ -4,7 +4,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Outcomes;
 
-internal static class GetOutcomesQueryHandler {
+public static class GetOutcomesQueryHandler {
     public static async Task<GetOutcomesResult> Handle(
         GetOutcomesQuery query,
         HaloPsaClientFactory factory,

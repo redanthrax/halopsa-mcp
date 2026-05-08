@@ -7,28 +7,34 @@ replicaCount: 1  # Keep at 1 for stateful token storage
 image:
   repository: redanthrax/halopsa-mcp
   pullPolicy: IfNotPresent
-  tag: "latest"
+  # Leave empty to fall back to .Chart.AppVersion. Override per-environment.
+  # TODO digest-pin: pin via image.digest before AKS prod
+  tag: ""
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  create: false
+  create: true
+  automountServiceAccountToken: false
   annotations: {}
+    # azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
   name: ""
 
 podAnnotations: {}
 
 podSecurityContext:
   fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   runAsNonRoot: true
   runAsUser: 1001
   runAsGroup: 1001
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false  # /app/data needs write access
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
     - ALL
@@ -106,6 +112,16 @@ halopsa:
   
   # Token storage path (inside container)
   tokenStorePath: "/app/data/tokens.json"
+  # DataProtection keys directory (encrypts tokens.json + clients.json at rest).
+  # Lives on the same PVC by default; consider Azure Key Vault wrap for prod.
+  dpKeyDir: "/app/data/dp-keys"
+
+# Logging: json (containers) or text (debug).
+logFormat: json
+
+# /ready response detail. False = minimal {status} (safe for public probes).
+# True = include session counts/dependency info (only enable for trusted scrapers).
+readyVerbose: false
 
 # Application ports
 ports:
@@ -116,3 +132,21 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# NetworkPolicy: default-deny except ingress controller and HaloPSA HTTPS egress.
+# Override .ingress / .egress to fully customise.
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# PodDisruptionBudget: only useful when replicaCount > 1.
+# Single-replica + RWO PVC is incompatible with PDB.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Optional Initial Access Token gate for /register (DCR).
+# When set, /register requires Authorization: Bearer <this token>.
+dcrInitialAccessToken: ""

@@ -42,80 +42,186 @@ Use this if your HaloPSA instance requires confidential clients or you need mach
 
 > **Note:** Do not use **Implicit Flow (Single Page Application)** — it is deprecated in OAuth 2.1 and less secure than Authorization Code + PKCE.
 
-## Quick Start
+## Deployment Modes
 
-### desktop MCP client (Local / Stdio)
+| Mode | Audience | Transport | Auth surface |
+|------|----------|-----------|--------------|
+| **Local / Stdio** | desktop MCP client on your laptop | stdin/stdout + background OAuth on `:3000` | Single user, single HaloPSA tenant |
+| **Docker** | Self-hosted, single host | Streamable HTTP on `:3000` | DCR optional; bind to localhost or trusted LAN |
+| **AKS / Kubernetes** | Internet-exposed multi-user MCP server (remote MCP client) | Streamable HTTP behind ingress + TLS | DCR gated, NetworkPolicy, HSTS, read-only rootfs |
 
-1. **Create `.env` file** in the project root (all configuration lives here):
+Use the same image/binary for all three; only environment variables and surrounding infra change.
+
+## 1. Local Dev (desktop MCP client / Stdio)
+
+1. Create `.env` (copy `.env.example`):
+   ```bash
+   HALOPSA_URL=https://your-tenant.halopsa.com
+   HALOPSA_CLIENT_ID=your-client-id
+   HALOPSA_TOKEN_STORE=./data/tokens.json
+   HALOPSA_DPKEY_DIR=./data/dp-keys
+   AUTH_BASE_URL=http://localhost:3000
+   LOG_FORMAT=text
+   ```
+
+2. Build:
+   ```bash
+   dotnet build
+   ```
+
+3. Configure desktop MCP client (`%APPDATA%\MCP client\mcp host config`):
+
+   > The MCP host's `env` block does not pass through `wsl.exe`. Put env vars in `.env`.
+
+   **WSL (recommended):**
+   ```json
+   {
+     "mcpServers": {
+       "halopsa": {
+         "command": "wsl.exe",
+         "args": [
+           "--distribution", "Ubuntu",
+           "bash", "-c",
+           "cd /path/to/halopsa-mcp && exec ./bin/Debug/net10.0/HaloPsaMcp"
+         ]
+       }
+     }
+   }
+   ```
+
+   **Native Windows:**
+   ```json
+   {
+     "mcpServers": {
+       "halopsa": {
+         "command": "dotnet",
+         "args": ["run", "--project", "C:\\path\\to\\halopsa-mcp"]
+       }
+     }
+   }
+   ```
+
+4. Restart desktop MCP client. The first call prints a login URL; open it in a browser.
+
+## 2. Docker (Self-hosted HTTP)
+
+The shipped `docker-compose.yml` runs the image with hardened defaults: non-root UID 1001, `read_only: true`, `cap_drop: ALL`, `no-new-privileges`, tmpfs `/tmp`, and a single `./data` bind mount for tokens + DataProtection keys.
+
 ```bash
-HALOPSA_URL=https://your-tenant.halopsa.com
-HALOPSA_CLIENT_ID=your-client-id
-HALOPSA_TOKEN_STORE=./data/tokens.json
-HTTP_PORT=3000
-# Only needed for "Client ID and Secret" auth method:
-# HALOPSA_CLIENT_SECRET=your-client-secret
+cp .env.example .env   # fill in HALOPSA_URL + HALOPSA_CLIENT_ID
+docker compose up -d
 ```
 
-2. **Build the project**:
-```bash
-dotnet build
-```
-
-3. **Configure desktop MCP client** (`%APPDATA%\MCP client\mcp host config`):
-
-> **Note:** The MCP host's `env` block does not pass through `wsl.exe` to the Linux process. All environment variables must be set in the `.env` file instead.
-
-**WSL (recommended for development):**
-```json
-{
-  "mcpServers": {
-    "halopsa": {
-      "command": "wsl.exe",
-      "args": [
-        "--distribution", "Ubuntu",
-        "bash", "-c",
-        "cd /path/to/halopsa-mcp && exec ./bin/Debug/net10.0/HaloPsaMcp"
-      ]
-    }
-  }
-}
-```
-
-**Native Windows:**
-```json
-{
-  "mcpServers": {
-    "halopsa": {
-      "command": "dotnet",
-      "args": ["run", "--project", "C:\\path\\to\\halopsa-mcp"]
-    }
-  }
-}
-```
-
-4. **Restart desktop MCP client** — MCP client will prompt you with a login URL when authentication is needed
-
-### remote MCP client (Remote MCP)
-
-Add as a remote MCP integration in remote MCP client settings:
-
-1. Go to **Settings → Integrations → Add Integration**
-2. Enter your server URL: `https://your-domain.com/mcp`
-3. remote MCP client handles OAuth automatically — you'll be prompted to log in via HaloPSA on first use
-
-### Production (Docker / Kubernetes)
-
+For a one-shot run without compose:
 ```bash
 docker run -d \
+  --name halopsa-mcp \
+  --user 1001:1001 \
+  --read-only --tmpfs /tmp \
+  --cap-drop ALL --security-opt no-new-privileges:true \
   -p 3000:3000 \
   -v ./data:/app/data \
   -e HALOPSA_URL=https://your-tenant.halopsa.com \
   -e HALOPSA_CLIENT_ID=your-client-id \
   -e AUTH_BASE_URL=https://your-domain.com \
+  -e HALOPSA_DPKEY_DIR=/app/data/dp-keys \
   redanthrax/halopsa-mcp:latest
 ```
 
-Add `-e HALOPSA_CLIENT_SECRET=your-secret` if using the Client ID and Secret authentication method.
+If you expose this to the public internet, also set `MCP_DCR_INITIAL_ACCESS_TOKEN` so `/register` is gated, and front it with a TLS-terminating reverse proxy (Caddy, Traefik, nginx).
+
+## 3. AKS / Kubernetes (Helm)
+
+The Helm chart at `helm/halopsa-mcp/` ships with hardened defaults: read-only root filesystem, `seccompProfile: RuntimeDefault`, no auto-mounted SA token, optional NetworkPolicy + PodDisruptionBudget, optional `MCP_DCR_INITIAL_ACCESS_TOKEN` from a generated Secret.
+
+```bash
+helm upgrade --install halopsa-mcp helm/halopsa-mcp/ \
+  --namespace halopsa-mcp --create-namespace \
+  --set halopsa.url=https://your-tenant.halopsa.com \
+  --set halopsa.clientId=your-client-id \
+  --set halopsa.authBaseUrl=https://halopsa-mcp.example.com \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=halopsa-mcp.example.com \
+  --set networkPolicy.enabled=true \
+  --set dcrInitialAccessToken=$(openssl rand -hex 32)
+```
+
+For a confidential client (Client ID + Secret method) provide the secret without committing it:
+```bash
+--set-file halopsa.clientSecret=./halopsa-client-secret.txt
+```
+
+Production checklist:
+- [ ] TLS terminated by ingress (cert-manager or Azure Application Gateway)
+- [ ] `networkPolicy.enabled=true`
+- [ ] `dcrInitialAccessToken` set (rotate on schedule)
+- [ ] `image.tag` pinned to a SemVer or digest, not `latest`
+- [ ] Image pulled from your private ACR (mirror from Docker Hub)
+- [ ] DataProtection keys backed by Azure Key Vault (see Limitations)
+
+### Helm Values Reference
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `replicaCount` | `1` | **Keep at 1** — token store is on a RWO PVC. HA needs a shared backend (Redis). |
+| `image.tag` | `""` (Chart.appVersion) | Pin to a SemVer or `@sha256:...` digest. |
+| `serviceAccount.create` | `true` | |
+| `serviceAccount.automountServiceAccountToken` | `false` | App does not call the K8s API. |
+| `securityContext.readOnlyRootFilesystem` | `true` | Writable paths are PVC + tmpfs `/tmp`. |
+| `podSecurityContext.seccompProfile.type` | `RuntimeDefault` | |
+| `networkPolicy.enabled` | `false` | Set true; defaults allow ingress-nginx → pod and egress to DNS / `:443` / IMDS only. |
+| `podDisruptionBudget.enabled` | `false` | Only useful with replicaCount > 1. |
+| `dcrInitialAccessToken` | `""` | When set, gates `/register`. |
+| `halopsa.dpKeyDir` | `/app/data/dp-keys` | DataProtection keys directory. |
+| `logFormat` | `json` | Use `text` only for debugging. |
+| `readyVerbose` | `false` | Set true for trusted in-cluster scrapers only. |
+| `persistence.enabled` | `true` | RWO PVC for tokens + DP keys. |
+
+## Configuration Reference
+
+### Required everywhere
+| Env | Purpose |
+|-----|---------|
+| `HALOPSA_URL` | HaloPSA tenant URL |
+| `HALOPSA_CLIENT_ID` | OAuth client ID |
+
+### Optional
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `HALOPSA_CLIENT_SECRET` | _(unset)_ | For "Client ID + Secret" method only |
+| `HALOPSA_TOKEN_STORE` | `./data/tokens.json` | Encrypted token store path |
+| `HALOPSA_DPKEY_DIR` | `./data/dp-keys` | DataProtection key ring |
+| `HTTP_PORT` | `3000` | Listener port |
+| `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
+| `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
+| `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | When set, `/register` requires `Authorization: Bearer <token>`. **Set this for any internet-exposed deployment.** |
+| `MCP_READY_VERBOSE` | `0` | `1` exposes detailed `/ready` JSON for trusted scrapers |
+| `LOG_FORMAT` | `json` | `text` for human-readable console |
+| `HALOPSA_SCHEMA_PATH` | `./schema` | Override schema catalog dir |
+
+## Modes
+
+| Mode | Use Case | Command | Transport |
+|------|----------|---------|-----------|
+| **Stdio** (default) | desktop MCP client local | `dotnet run` | stdin/stdout + background HTTP on port 3000 for OAuth |
+| **HTTP** | remote MCP client / production | `dotnet run -- --http` | Streamable HTTP on port 3000 |
+
+## Security Posture
+
+- OAuth 2.1 Authorization Code + PKCE
+- Distinct rotating refresh tokens (`mcr_*`); bearer (`mcp_*`) stable across rotation
+- Dynamic Client Registration optionally gated by Initial Access Token
+- SQL allowlist (`SqlGuard`) on `halopsa_query`: only `SELECT`/`WITH … SELECT`, no comments/`;`/DDL/DML/EXEC, 8000-char cap
+- HSTS + ForwardedHeaders enabled in HTTP mode
+- Tokens + DCR registrations encrypted at rest via ASP.NET DataProtection
+- HaloPSA error response bodies redacted from logs
+- Container: non-root UID 1001, no curl/wget, K8s probes only
+
+## Limitations
+
+- **Single replica.** Token store is local file + RWO PVC. Multi-replica needs a shared backend (Redis on the roadmap).
+- **DataProtection keys on PVC.** Surviving cluster rebuilds requires backing up the PVC or wrapping with Azure Key Vault.
+- **Single HaloPSA tenant per deployment.**
 
 ## Available Tools
 
@@ -214,25 +320,6 @@ The schema folder is auto-copied next to the binary at build/publish. Override t
 | Tool | Description |
 |------|-------------|
 | `halopsa_api_call` | Make a direct HaloPSA REST call against an arbitrary endpoint. Use for endpoints not covered by the typed tools. |
-
-## Modes
-
-| Mode | Use Case | Command | Transport |
-|------|----------|---------|-----------|
-| **Stdio** (default) | desktop MCP client local | `dotnet run` | stdin/stdout + background HTTP on port 3000 for OAuth |
-| **HTTP** | remote MCP client / production | `dotnet run -- --http` | Streamable HTTP on port 3000 |
-
-## Configuration
-
-### Required
-- `HALOPSA_URL` — Your HaloPSA instance URL (e.g. `https://your-tenant.halopsa.com`)
-- `HALOPSA_CLIENT_ID` — OAuth client ID from HaloPSA
-
-### Optional
-- `HALOPSA_CLIENT_SECRET` — OAuth client secret (only for "Client ID and Secret" auth method)
-- `HALOPSA_TOKEN_STORE` — Token file path for stdio mode (default: `./data/tokens.json`)
-- `HTTP_PORT` — HTTP server port (default: `3000`)
-- `AUTH_BASE_URL` — External URL for OAuth callbacks (default: `http://localhost:3000`)
 
 ## Troubleshooting
 

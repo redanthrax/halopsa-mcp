@@ -7,7 +7,7 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 /// Shared state manager for OAuth endpoints. Caches are bounded to defend
 /// against memory-exhaustion attacks on /authorize and /callback.
 /// </summary>
-internal static class OAuthStateManager {
+public static class OAuthStateManager {
     private const int MaxPending = 10_000;
     private const int MaxCompleted = 10_000;
 
@@ -34,14 +34,24 @@ internal static class OAuthStateManager {
         }
     }
 
-    private static void EnforceCap<T>(ConcurrentDictionary<string, T> dict, int cap) {
+    private static void EnforceCap<T>(ConcurrentDictionary<string, T> dict, int cap)
+        where T : IExpiring {
         if (dict.Count < cap) {
             return;
         }
-        // Evict any entry with an Expires field via reflection-free approach: remove arbitrary head
-        var keysToRemove = dict.Keys.Take(dict.Count - cap + 1).ToArray();
+        // Evict oldest-expiring entries first so non-expired flows in progress
+        // are preserved as long as possible under load.
+        var keysToRemove = dict
+            .OrderBy(kvp => kvp.Value.Expires)
+            .Take(dict.Count - cap + 1)
+            .Select(kvp => kvp.Key)
+            .ToArray();
         foreach (var k in keysToRemove) {
             dict.TryRemove(k, out _);
         }
     }
+}
+
+public interface IExpiring {
+    long Expires { get; }
 }

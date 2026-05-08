@@ -1,3 +1,3 @@
 namespace HaloPsaMcp.Modules.Authentication.Queries;
 
-internal record ValidateTokenResult(bool IsValid);
+public record ValidateTokenResult(bool IsValid);

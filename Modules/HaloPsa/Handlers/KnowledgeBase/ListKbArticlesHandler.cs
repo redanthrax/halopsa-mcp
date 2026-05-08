@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.KnowledgeBase;
 
-internal static class ListKbArticlesHandler {
+public static class ListKbArticlesHandler {
     public static async Task<ListKbArticlesResult> Handle(
         ListKbArticlesQuery query,
         HaloPsaClientFactory factory,

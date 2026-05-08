@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Models;
 
-internal record UpdateTicketRequest(
+public record UpdateTicketRequest(
     int Id,
     string Summary,
     string? Details = null,

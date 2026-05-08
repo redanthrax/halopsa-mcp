@@ -1,9 +1,11 @@
+using HaloPsaMcp.Modules.Authentication.Services;
+
 namespace HaloPsaMcp.Modules.Authentication.Models;
 
 /// <summary>
 /// OAuth completed authorization with tokens
 /// </summary>
-internal class CompletedAuth {
+public class CompletedAuth : IExpiring {
     public required string AccessToken { get; init; }
     public required string RefreshToken { get; init; }
     public required int ExpiresIn { get; init; }

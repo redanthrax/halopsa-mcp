@@ -1,3 +1,3 @@
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Timesheets;
 
-internal record UpdateTimesheetResult(bool Exists);
+public record UpdateTimesheetResult(bool Exists);

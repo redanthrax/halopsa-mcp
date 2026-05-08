@@ -4,7 +4,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Assets;
 
-internal static class GetAssetQueryHandler
+public static class GetAssetQueryHandler
 {
     public static async Task<GetAssetResult> Handle(
         GetAssetQuery query,

@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Tickets;
 
-internal static class ListStatusesQueryHandler
+public static class ListStatusesQueryHandler
 {
     public static async Task<ListStatusesResult> Handle(
         ListStatusesQuery query,

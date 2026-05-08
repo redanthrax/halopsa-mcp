@@ -1,3 +1,3 @@
 namespace HaloPsaMcp.Modules.Authentication.Commands;
 
-internal record StoreUserTokenResult(bool Success);
+public record StoreUserTokenResult(bool Success);

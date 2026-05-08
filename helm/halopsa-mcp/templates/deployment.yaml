@@ -23,6 +23,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "halopsa-mcp.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken | default false }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -46,8 +47,14 @@ spec:
           value: {{ .Values.ports.http | quote }}
         - name: HALOPSA_TOKEN_STORE
           value: {{ .Values.halopsa.tokenStorePath | quote }}
+        - name: HALOPSA_DPKEY_DIR
+          value: {{ .Values.halopsa.dpKeyDir | quote }}
         - name: HALOPSA_REDIRECT_URI
           value: "{{ .Values.halopsa.authBaseUrl }}/callback"
+        - name: LOG_FORMAT
+          value: {{ .Values.logFormat | quote }}
+        - name: MCP_READY_VERBOSE
+          value: {{ .Values.readyVerbose | ternary "1" "0" | quote }}
         {{- if .Values.halopsa.clientSecret }}
         - name: HALOPSA_CLIENT_SECRET
           valueFrom:
@@ -55,9 +62,18 @@ spec:
               name: {{ include "halopsa-mcp.fullname" . }}-secret
               key: halopsa_client_secret
         {{- end }}
+        {{- if .Values.dcrInitialAccessToken }}
+        - name: MCP_DCR_INITIAL_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "halopsa-mcp.fullname" . }}-secret
+              key: mcp_dcr_initial_access_token
+        {{- end }}
         volumeMounts:
         - name: token-storage
           mountPath: /app/data
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           {{- toYaml .Values.livenessProbe | nindent 12 }}
         readinessProbe:
@@ -72,6 +88,8 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      - name: tmp
+        emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

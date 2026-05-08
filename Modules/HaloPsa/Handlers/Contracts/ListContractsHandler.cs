@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Contracts;
 
-internal static class ListContractsHandler {
+public static class ListContractsHandler {
     public static async Task<ListContractsResult> Handle(
         ListContractsQuery query,
         HaloPsaClientFactory factory,

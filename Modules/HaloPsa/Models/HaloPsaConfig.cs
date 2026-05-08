@@ -3,7 +3,7 @@ namespace HaloPsaMcp.Modules.HaloPsa.Models;
 /// <summary>
 /// HaloPSA API configuration
 /// </summary>
-internal class HaloPsaConfig {
+public class HaloPsaConfig {
     public required string Url { get; set; }
     public required string ClientId { get; set; }
     public string? ClientSecret { get; set; }

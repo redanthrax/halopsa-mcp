@@ -69,7 +69,7 @@ internal static class CallbackEndpoint {
 
             if (pending.IsDirectLogin) {
                 // Direct browser login — create MCP session immediately
-                var mcp = await tokenStorage.CreateSessionAsync(
+                var (mcp, _) = await tokenStorage.CreateSessionAsync(
                     tokenData.access_token, tokenData.refresh_token, expiresAt).ConfigureAwait(false);
                 logger.LogInformation("Direct login OK | mcpToken={Hint}", SecretRedactor.Hint(mcp));
                 return Results.Redirect(pending.ClientRedirectUri);

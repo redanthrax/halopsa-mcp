@@ -3,25 +3,31 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: redanthrax/halopsa-mcp:local
     container_name: halopsa-mcp
     restart: unless-stopped
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
-      - "3000:3000"  # HTTP/OAuth server port
-      - "8000:8000"  # MCP server port
+      - "3000:3000"
     environment:
-      - HALOPSA_URL=${HALOPSA_URL}
-      - HALOPSA_CLIENT_ID=${HALOPSA_CLIENT_ID}
-      - HALOPSA_TOKEN_STORE=/app/data/tokens.json
-      - MCP_PORT=8000
-      - HTTP_PORT=3000
-      - AUTH_BASE_URL=${AUTH_BASE_URL:-http://localhost:3000}
-      # Optional for client_credentials fallback mode
-      - HALOPSA_CLIENT_SECRET=${HALOPSA_CLIENT_SECRET:-}
+      HALOPSA_URL: ${HALOPSA_URL}
+      HALOPSA_CLIENT_ID: ${HALOPSA_CLIENT_ID}
+      HALOPSA_CLIENT_SECRET: ${HALOPSA_CLIENT_SECRET:-}
+      HALOPSA_TOKEN_STORE: /app/data/tokens.json
+      HALOPSA_DPKEY_DIR: /app/data/dp-keys
+      HTTP_PORT: "3000"
+      AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
+      # Gate /register (DCR). When set, clients must present this Bearer token.
+      MCP_DCR_INITIAL_ACCESS_TOKEN: ${MCP_DCR_INITIAL_ACCESS_TOKEN:-}
+      # Set to "1" only for trusted in-cluster scrape targets.
+      MCP_READY_VERBOSE: ${MCP_READY_VERBOSE:-0}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
     volumes:
       - ./data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s

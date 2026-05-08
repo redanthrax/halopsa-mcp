@@ -2,4 +2,4 @@ using System.Text.Json;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Contracts;
 
-internal record ListContractsResult(JsonElement Data);
+public record ListContractsResult(JsonElement Data);

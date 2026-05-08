@@ -5,4 +5,4 @@ namespace HaloPsaMcp.Modules.HaloPsa.Queries.Tickets;
 /// <summary>
 /// Query to create a new ticket in HaloPSA
 /// </summary>
-internal record CreateTicketQuery(CreateTicketRequest Request);
+public record CreateTicketQuery(CreateTicketRequest Request);

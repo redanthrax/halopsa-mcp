@@ -1,3 +1,3 @@
 namespace HaloPsaMcp.Modules.Authentication.Commands;
 
-internal record InvalidateTokenResult(bool Success);
+public record InvalidateTokenResult(bool Success);

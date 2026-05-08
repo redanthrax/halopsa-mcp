@@ -6,10 +6,9 @@ namespace HaloPsaMcp.Modules.Common.Models;
 /// <summary>
 /// Application configuration loaded from environment variables
 /// </summary>
-internal class AppConfig {
+public class AppConfig {
     public HaloPsaSettings HaloPsa { get; set; } = new();
     public required string AuthBaseUrl { get; init; }
-    public int McpPort { get; init; }
     public int HttpPort { get; init; }
 
     public static AppConfig LoadFromEnvironment() {
@@ -29,7 +28,6 @@ internal class AppConfig {
             ?? throw new InvalidOperationException("HALOPSA_CLIENT_ID environment variable is required");
         var tokenStorePath = config["HALOPSA_TOKEN_STORE"] ?? "./data/tokens.json";
         var authBaseUrl = config["AUTH_BASE_URL"] ?? "";
-        var mcpPort = int.Parse(config["MCP_PORT"] ?? "8000", CultureInfo.InvariantCulture);
         var httpPort = int.Parse(config["HTTP_PORT"] ?? "3000", CultureInfo.InvariantCulture);
 
         if (string.IsNullOrEmpty(authBaseUrl)) {
@@ -44,7 +42,6 @@ internal class AppConfig {
                 TokenStorePath = tokenStorePath
             },
             AuthBaseUrl = authBaseUrl,
-            McpPort = mcpPort,
             HttpPort = httpPort
         };
     }

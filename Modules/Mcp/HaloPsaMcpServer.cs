@@ -140,6 +140,7 @@ internal partial class HaloPsaMcpTools {
     public static async Task<string> HalopsaQuery(
         AppConfig appConfig,
         IMessageBus bus,
+        SchemaCatalogService catalog,
         [Description("SQL SELECT query. Must include TOP N to limit results.")] string sql) {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -170,7 +171,10 @@ internal partial class HaloPsaMcpTools {
         } catch (TaskCanceledException) {
             return HaloPsaMcpConstants.QueryTimeoutMessage;
         } catch (Exception ex) {
-            return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryFailedTemplate, ex.Message);
+            var hint = HaloPsaMcpConstants.BuildColumnHint(ex.Message, sql, catalog);
+            return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryFailedTemplate, ex.Message)
+                + hint
+                + $"\nlogin_url={HaloPsaMcpConstants.GetLoginUrl(appConfig)}";
         }
     }
 
@@ -231,6 +235,15 @@ internal partial class HaloPsaMcpTools {
     }
 
     [McpServerTool]
+    [Description("Returns the login URL for this HaloPSA MCP server instance. The URL is server-specific (differs between local dev, staging, and production); call this rather than recalling a URL from a previous session.")]
+    public static string HalopsaGetLoginUrl(AppConfig appConfig) {
+        var url = HaloPsaMcpConstants.GetLoginUrl(appConfig);
+        return JsonSerializer.Serialize(new {
+            login_url = url,
+        }, IndentedJsonOptions);
+    }
+
+    [McpServerTool]
     [Description(HaloPsaMcpConstants.HalopsaAuthStatusDescription)]
     public static async Task<string> HalopsaAuthStatus(
         HaloPsaClientFactory clientFactory,
@@ -251,7 +264,8 @@ internal partial class HaloPsaMcpTools {
                 authenticated = true,
                 agent_name = name,
                 agent_email = email,
-                message = HaloPsaMcpConstants.AuthenticatedMessage
+                message = HaloPsaMcpConstants.AuthenticatedMessage,
+                login_url = HaloPsaMcpConstants.GetLoginUrl(appConfig)
             }, IndentedJsonOptions);
         } catch (TaskCanceledException) {
             return JsonSerializer.Serialize(new {

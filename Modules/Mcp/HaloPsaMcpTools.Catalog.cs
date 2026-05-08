@@ -221,18 +221,20 @@ internal partial class HaloPsaMcpTools {
             r => r.Data);
 
     [McpServerTool]
-    [Description("List HaloPSA projects. Filter by `clientId` or `search`.")]
+    [Description("List HaloPSA projects (request types where RTIsProject = 1). Filters: clientId, search, openOnly. Backed by the reporting DB — accurate count vs. /api/Projects which mixes project tasks with parents.")]
     public static Task<string> HalopsaListProjects(
         AppConfig appConfig,
         IMessageBus bus,
         [Description("Max projects to return (1-100)")] int count = 25,
         [Description("Optional client_id filter (0 = no filter)")] int clientId = 0,
-        [Description("Optional search string")] string? search = null) =>
+        [Description("Optional case-insensitive substring match on project summary")] string? search = null,
+        [Description("If true (default), excludes Status 8 (cancelled) and 9 (closed)")] bool openOnly = true) =>
         InvokeJson<ListProjectsQuery, ListProjectsResult>(
             bus, appConfig,
             new ListProjectsQuery(Math.Min(Math.Max(count, 1), 100),
                 clientId > 0 ? clientId : null,
-                string.IsNullOrEmpty(search) ? null : search),
+                string.IsNullOrEmpty(search) ? null : search,
+                openOnly),
             r => r.Data);
 
     [McpServerTool]

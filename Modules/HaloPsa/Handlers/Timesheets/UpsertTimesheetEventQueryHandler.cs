@@ -4,7 +4,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Timesheets;
 
-internal static class UpsertTimesheetEventQueryHandler {
+public static class UpsertTimesheetEventQueryHandler {
     public static async Task<UpsertTimesheetEventResult> Handle(
         UpsertTimesheetEventQuery query,
         HaloPsaClientFactory factory,

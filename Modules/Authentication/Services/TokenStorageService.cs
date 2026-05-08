@@ -15,9 +15,10 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 /// never leaves the process. File contents are encrypted at rest via DataProtection
 /// and the file is chmod 600 on Unix.
 /// </summary>
-internal sealed class TokenStorageService : IDisposable {
+public sealed class TokenStorageService : IDisposable {
     private const int MaxSessions = 5000;
     private const string McpTokenPrefix = "mcp_";
+    private const string McpRefreshPrefix = "mcr_";
 
     private readonly string _tokenFilePath;
     private readonly ILogger<TokenStorageService> _logger;
@@ -49,30 +50,38 @@ internal sealed class TokenStorageService : IDisposable {
     }
 
     /// <summary>Generates a new opaque MCP session token (mcp_{base64url(32)}).</summary>
-    public static string GenerateMcpToken() {
+    public static string GenerateMcpToken() => GenerateOpaque(McpTokenPrefix);
+
+    /// <summary>Generates a new opaque MCP refresh token (mcr_{base64url(32)}).</summary>
+    public static string GenerateMcpRefreshToken() => GenerateOpaque(McpRefreshPrefix);
+
+    private static string GenerateOpaque(string prefix) {
         var bytes = new byte[32];
         RandomNumberGenerator.Fill(bytes);
         var b64 = Convert.ToBase64String(bytes)
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        return McpTokenPrefix + b64;
+        return prefix + b64;
     }
 
     /// <summary>
-    /// Creates a new MCP session: returns an opaque mcp_ token mapped to the supplied
-    /// HaloPSA access/refresh pair. The HaloPSA token never leaves the server.
+    /// Creates a new MCP session: returns (mcp access token, mcp refresh token).
+    /// Both are opaque, distinct, and back the same upstream HaloPSA token pair.
     /// </summary>
-    public async Task<string> CreateSessionAsync(string haloPsaAccess, string? haloPsaRefresh, long expiresAt) {
+    public async Task<(string AccessToken, string RefreshToken)> CreateSessionAsync(
+        string haloPsaAccess, string? haloPsaRefresh, long expiresAt) {
         EnforceCap();
         var mcpToken = GenerateMcpToken();
+        var mcpRefresh = GenerateMcpRefreshToken();
         var entry = new UserTokenEntry {
             AccessToken = haloPsaAccess,
             RefreshToken = haloPsaRefresh ?? string.Empty,
-            ExpiresAt = expiresAt
+            ExpiresAt = expiresAt,
+            McpRefreshToken = mcpRefresh
         };
         _memoryCache[mcpToken] = entry;
         await PersistAsync().ConfigureAwait(false);
         _logger.LogInformation("MCP session created | mcpToken={Hint}", SecretRedactor.Hint(mcpToken));
-        return mcpToken;
+        return (mcpToken, mcpRefresh);
     }
 
     /// <summary>Get the entry for an MCP session token (or null).</summary>
@@ -81,12 +90,23 @@ internal sealed class TokenStorageService : IDisposable {
         return entry;
     }
 
-    /// <summary>Most recently created session — used by stdio mode where there is no HTTP context.</summary>
+    /// <summary>Most recently created session — used by stdio mode where there is no HTTP context.
+    /// In HTTP mode this fallback is disabled to prevent cross-session token leakage.</summary>
     public UserTokenEntry? GetDefaultToken() {
+        if (DisableDefaultFallback) {
+            return null;
+        }
         return _memoryCache.Values
             .OrderByDescending(t => t.ExpiresAt)
             .FirstOrDefault();
     }
+
+    /// <summary>
+    /// Set true at startup in HTTP/AKS mode. When true, GetDefaultToken returns
+    /// null instead of leaking the most-recent session to handlers without an
+    /// authenticated HTTP context.
+    /// </summary>
+    public static bool DisableDefaultFallback { get; set; }
 
     /// <summary>Validates that an MCP session exists and has not expired.</summary>
     public bool IsValidSession(string mcpToken) {
@@ -101,16 +121,52 @@ internal sealed class TokenStorageService : IDisposable {
     /// The opaque MCP token itself is unchanged so MCP clients keep working seamlessly.
     /// </summary>
     public async Task UpdateSessionTokensAsync(string mcpToken, string newHaloAccess, string newHaloRefresh, long newExpiresAt) {
-        if (!_memoryCache.TryGetValue(mcpToken, out _)) {
+        if (!_memoryCache.TryGetValue(mcpToken, out var existing)) {
             _logger.LogWarning("Refresh-update for unknown session | mcpToken={Hint}", SecretRedactor.Hint(mcpToken));
             return;
         }
         _memoryCache[mcpToken] = new UserTokenEntry {
             AccessToken = newHaloAccess,
             RefreshToken = newHaloRefresh,
-            ExpiresAt = newExpiresAt
+            ExpiresAt = newExpiresAt,
+            McpRefreshToken = existing.McpRefreshToken
         };
         await PersistAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Find a session by its MCP refresh token (mcr_*). O(n) over sessions; only
+    /// called from the /token refresh path which is rate-limited.
+    /// </summary>
+    public KeyValuePair<string, UserTokenEntry>? FindByRefreshToken(string mcpRefresh) {
+        foreach (var kvp in _memoryCache) {
+            if (string.Equals(kvp.Value.McpRefreshToken, mcpRefresh, StringComparison.Ordinal)) {
+                return kvp;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Rotate the MCP refresh token after a successful refresh exchange.
+    /// One-time-use semantics: the old refresh string becomes invalid the moment
+    /// this returns. Caller must hand the new value back to the MCP client.
+    /// </summary>
+    public async Task<string> RotateRefreshTokenAsync(
+        string mcpAccessToken,
+        string newHaloAccess, string newHaloRefresh, long newExpiresAt) {
+        if (!_memoryCache.TryGetValue(mcpAccessToken, out _)) {
+            throw new InvalidOperationException("Cannot rotate refresh for unknown session");
+        }
+        var newMcpRefresh = GenerateMcpRefreshToken();
+        _memoryCache[mcpAccessToken] = new UserTokenEntry {
+            AccessToken = newHaloAccess,
+            RefreshToken = newHaloRefresh,
+            ExpiresAt = newExpiresAt,
+            McpRefreshToken = newMcpRefresh
+        };
+        await PersistAsync().ConfigureAwait(false);
+        return newMcpRefresh;
     }
 
     /// <summary>Removes expired sessions; called by background cleanup timer.</summary>

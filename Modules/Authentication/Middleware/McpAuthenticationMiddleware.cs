@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using HaloPsaMcp.Modules.Authentication.Services;
+using HaloPsaMcp.Modules.Common.Models;
 
 namespace HaloPsaMcp.Modules.Authentication.Middleware;
 
@@ -17,7 +18,7 @@ internal class McpAuthenticationMiddleware {
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, TokenStorageService tokenStorage) {
+    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, TokenStorageService tokenStorage, AppConfig appConfig) {
         var sw = Stopwatch.StartNew();
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         string? token = null;
@@ -31,7 +32,7 @@ internal class McpAuthenticationMiddleware {
             _logger.LogWarning(
                 "Auth rejected — no Bearer token | path={Path} method={Method}",
                 context.Request.Path, context.Request.Method);
-            await Reject401(context, "unauthorized", "Bearer token required").ConfigureAwait(false);
+            await Reject401(context, appConfig, "unauthorized", "Bearer token required").ConfigureAwait(false);
             return;
         }
 
@@ -43,14 +44,14 @@ internal class McpAuthenticationMiddleware {
             _logger.LogWarning(
                 "Auth rejected — invalid/expired session | mcp={Hint} path={Path} elapsed={ElapsedMs}ms",
                 hint, context.Request.Path, sw.ElapsedMilliseconds);
-            await Reject401(context, "invalid_token", "Token is invalid or expired").ConfigureAwait(false);
+            await Reject401(context, appConfig, "invalid_token", "Token is invalid or expired").ConfigureAwait(false);
             return;
         }
 
         sw.Stop();
         var entry = tokenStorage.GetToken(token);
         if (entry is null) {
-            await Reject401(context, "invalid_token", "Session not found").ConfigureAwait(false);
+            await Reject401(context, appConfig, "invalid_token", "Session not found").ConfigureAwait(false);
             return;
         }
 
@@ -68,11 +69,10 @@ internal class McpAuthenticationMiddleware {
         await _next(context).ConfigureAwait(false);
     }
 
-    private static async Task Reject401(HttpContext context, string err, string desc) {
+    private static async Task Reject401(HttpContext context, AppConfig appConfig, string err, string desc) {
         context.Response.StatusCode = 401;
         context.Response.Headers.Append("WWW-Authenticate",
-            $"Bearer resource_metadata=\"{context.Request.Scheme}://" +
-            $"{context.Request.Host}/.well-known/oauth-protected-resource\"");
+            $"Bearer resource_metadata=\"{appConfig.AuthBaseUrl.TrimEnd('/')}/.well-known/oauth-protected-resource\"");
         await context.Response.WriteAsJsonAsync(
             new { error = err, error_description = desc }).ConfigureAwait(false);
     }

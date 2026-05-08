@@ -43,6 +43,10 @@ spec:
           value: {{ .Values.halopsa.clientId | quote }}
         - name: AUTH_BASE_URL
           value: {{ .Values.halopsa.authBaseUrl | quote }}
+        {{- if .Values.halopsa.publicBaseUrl }}
+        - name: HALOPSA_PUBLIC_URL
+          value: {{ .Values.halopsa.publicBaseUrl | quote }}
+        {{- end }}
         - name: HTTP_PORT
           value: {{ .Values.ports.http | quote }}
         - name: HALOPSA_TOKEN_STORE

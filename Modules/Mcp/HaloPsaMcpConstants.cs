@@ -57,7 +57,7 @@ internal static class HaloPsaMcpConstants
 
     internal static string GetLoginUrl(AppConfig appConfig)
     {
-        return $"{appConfig.AuthBaseUrl}/login";
+        return $"{appConfig.PublicBaseUrl}/login";
     }
 
     private static readonly Regex InvalidColumnRegex = new(
@@ -159,7 +159,7 @@ internal static class HaloPsaMcpConstants
         return JsonSerializer.Serialize(new {
             authenticated = false,
             error = "NOT_AUTHENTICATED",
-            message = "HaloPSA session is not authenticated. Sign in via the URL in login_url to continue.",
+            message = $"HaloPSA session is not authenticated. Sign in at: {url}",
             login_url = url,
         }, IndentedJsonOptions);
     }

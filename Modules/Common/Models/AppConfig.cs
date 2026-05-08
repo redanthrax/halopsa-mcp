@@ -9,6 +9,12 @@ namespace HaloPsaMcp.Modules.Common.Models;
 public class AppConfig {
     public HaloPsaSettings HaloPsa { get; set; } = new();
     public required string AuthBaseUrl { get; init; }
+    /// <summary>
+    /// Public base URL used for login links and other user-facing URLs.
+    /// Defaults to AuthBaseUrl. Set HALOPSA_PUBLIC_URL (or PUBLIC_BASE_URL) to
+    /// override when the externally reachable URL differs from the OAuth redirect base.
+    /// </summary>
+    public string PublicBaseUrl { get; init; } = "";
     public int HttpPort { get; init; }
 
     public static AppConfig LoadFromEnvironment() {
@@ -28,10 +34,16 @@ public class AppConfig {
             ?? throw new InvalidOperationException("HALOPSA_CLIENT_ID environment variable is required");
         var tokenStorePath = config["HALOPSA_TOKEN_STORE"] ?? "./data/tokens.json";
         var authBaseUrl = config["AUTH_BASE_URL"] ?? "";
+        var publicBaseUrl = config["HALOPSA_PUBLIC_URL"]
+            ?? config["PUBLIC_BASE_URL"]
+            ?? authBaseUrl;
         var httpPort = int.Parse(config["HTTP_PORT"] ?? "3000", CultureInfo.InvariantCulture);
 
         if (string.IsNullOrEmpty(authBaseUrl)) {
             authBaseUrl = $"http://localhost:{httpPort}";
+        }
+        if (string.IsNullOrEmpty(publicBaseUrl)) {
+            publicBaseUrl = authBaseUrl;
         }
 
         return new AppConfig {
@@ -42,6 +54,7 @@ public class AppConfig {
                 TokenStorePath = tokenStorePath
             },
             AuthBaseUrl = authBaseUrl,
+            PublicBaseUrl = publicBaseUrl,
             HttpPort = httpPort
         };
     }

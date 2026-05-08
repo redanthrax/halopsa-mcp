@@ -3,7 +3,7 @@ using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Handlers;
 
-internal static class ValidateTokenQueryHandler
+public static class ValidateTokenQueryHandler
 {
     public static async Task<ValidateTokenResult> Handle(
         ValidateTokenQuery query,

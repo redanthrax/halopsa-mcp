@@ -16,7 +16,24 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore HaloPsaMcp.csproj
+          dotnet restore tests/HaloPsaMcp.Tests/HaloPsaMcp.Tests.csproj
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: |
+          dotnet build HaloPsaMcp.csproj --no-restore --configuration Release
+          dotnet build tests/HaloPsaMcp.Tests/HaloPsaMcp.Tests.csproj --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test tests/HaloPsaMcp.Tests/HaloPsaMcp.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Vulnerable package scan
+        run: |
+          set -euo pipefail
+          OUT=$(dotnet list HaloPsaMcp.csproj package --vulnerable --include-transitive 2>&1 || true)
+          echo "$OUT"
+          if echo "$OUT" | grep -E "^\s*>\s" >/dev/null; then
+            echo "::error::Vulnerable NuGet packages detected"
+            exit 1
+          fi

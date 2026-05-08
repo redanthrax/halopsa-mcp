@@ -28,7 +28,7 @@ internal sealed class NullSafeIntConverter : JsonConverter<int> {
 /// The catalog is the dump of HaloPSA's reporting database — 845 tables across
 /// 15 domains. Lookups are in-memory and case-insensitive.
 /// </summary>
-internal sealed class SchemaCatalogService {
+public sealed class SchemaCatalogService {
     public static readonly IReadOnlyDictionary<string, string> DomainDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
         ["tickets"] = "Tickets / requests. FAULTS is the central ticket table; ACTIONS holds each update. STDREQUEST = templates, REQUESTTYPE = ticket category.",
         ["crm"] = "Clients (AREA) and their SITEs, address books, opportunities, marketing, campaigns. AREA.Aarea = client id; SITE.Ssitenum = site id.",
@@ -168,5 +168,5 @@ internal sealed class SchemaCatalogService {
     }
 }
 
-internal record DomainSummary(string Name, int TableCount, string Description);
-internal record SearchHit(string Table, string Domain, long RowCount, string MatchType, string MatchedName);
+public record DomainSummary(string Name, int TableCount, string Description);
+public record SearchHit(string Table, string Domain, long RowCount, string MatchType, string MatchedName);

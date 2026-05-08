@@ -5,7 +5,7 @@ namespace HaloPsaMcp.Modules.HaloPsa.Models;
 /// <summary>
 /// Request model for creating a new ticket
 /// </summary>
-internal class CreateTicketRequest
+public class CreateTicketRequest
 {
     /// <summary>
     /// The ticket summary or title.

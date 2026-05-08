@@ -5,7 +5,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Timesheets;
 
-internal static class GetTimesheetQueryHandler {
+public static class GetTimesheetQueryHandler {
     public static async Task<GetTimesheetResult> Handle(
         GetTimesheetQuery query,
         HaloPsaClientFactory factory,

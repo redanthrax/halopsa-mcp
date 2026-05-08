@@ -3,7 +3,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Timesheets;
 
-internal static class DeleteTimesheetEventCommandHandler {
+public static class DeleteTimesheetEventCommandHandler {
     public static async Task<DeleteTimesheetEventResult> Handle(
         DeleteTimesheetEventCommand command,
         HaloPsaClientFactory factory,

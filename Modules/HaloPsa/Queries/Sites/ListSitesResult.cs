@@ -2,4 +2,4 @@ using System.Text.Json;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Sites;
 
-internal record ListSitesResult(JsonElement Data);
+public record ListSitesResult(JsonElement Data);

@@ -1,5 +1,6 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
+# Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/sdk:10.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:8a90a473da5205a16979de99d2fc20975e922c68304f5c79d564e666dc3982fc AS builder
 
 WORKDIR /app
 
@@ -17,10 +18,8 @@ COPY . ./
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage — alpine cuts ~100 MB vs the default debian image
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
-
-# curl for HEALTHCHECK; cleaned via apk in same layer
-RUN apk add --no-cache curl
+# Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:60eb031b554df75a4b9f358290a2fa15d8961a3bc79b47bb34a00e31f7b78c69
 
 # Non-root user (alpine has addgroup/adduser, not groupadd/useradd)
 RUN addgroup -g 1001 -S dotnet && adduser -S -u 1001 -G dotnet dotnet
@@ -40,10 +39,8 @@ ENV LOG_FORMAT=json
 EXPOSE 3000
 VOLUME ["/app/data"]
 
-# Use /ready so docker reports unhealthy if a critical dependency
-# (token storage) fails. Schema catalog absence shows up as "degraded"
-# in the body but still passes the probe.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -fsS http://localhost:3000/ready || exit 1
+# Health is exposed on /health and /ready; rely on Kubernetes probes
+# (helm chart configures liveness/readiness). No in-image HEALTHCHECK
+# avoids shipping curl/wget and keeps the image attack surface minimal.
 
 ENTRYPOINT ["dotnet", "HaloPsaMcp.dll", "--http"]

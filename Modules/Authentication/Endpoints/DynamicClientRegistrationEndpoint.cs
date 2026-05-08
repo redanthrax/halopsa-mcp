@@ -22,7 +22,24 @@ internal static class DynamicClientRegistrationEndpoint {
     private static async Task<IResult> DynamicClientRegistration(
         ClientRegistrationStore store,
         ILogger<RegisterMarker> logger,
+        HttpContext http,
         [FromBody] JsonElement? body) {
+        // Initial Access Token (RFC 7591 §3) — when MCP_DCR_INITIAL_ACCESS_TOKEN is
+        // set, every /register call must present it as a Bearer credential. In AKS
+        // this is the deploy-time guard against open client registration.
+        var requiredIat = Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN");
+        if (!string.IsNullOrEmpty(requiredIat)) {
+            var authHeader = http.Request.Headers.Authorization.ToString();
+            string? presented = null;
+            if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
+                presented = authHeader.Substring(7);
+            }
+            if (presented is null || !FixedTimeEquals(presented, requiredIat)) {
+                logger.LogWarning("DCR rejected — missing/invalid initial access token");
+                return Results.Unauthorized();
+            }
+        }
+
         if (store.IsAtCapacity) {
             logger.LogWarning("DCR rejected — registration store at capacity ({Count})", store.Count);
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
@@ -51,6 +68,14 @@ internal static class DynamicClientRegistrationEndpoint {
                 return Results.BadRequest(new {
                     error = "invalid_redirect_uri",
                     error_description = $"Invalid redirect_uri: {u}"
+                });
+            }
+            // Reject query / fragment in registered URIs to prevent code-injection by
+            // mixing the issued ?code= with attacker-controlled query state.
+            if (u.Contains('?', StringComparison.Ordinal) || u.Contains('#', StringComparison.Ordinal)) {
+                return Results.BadRequest(new {
+                    error = "invalid_redirect_uri",
+                    error_description = "redirect_uri must not contain '?' or '#'"
                 });
             }
         }
@@ -82,4 +107,11 @@ internal static class DynamicClientRegistrationEndpoint {
     }
 
     internal sealed class RegisterMarker { }
+
+    private static bool FixedTimeEquals(string a, string b) {
+        var ab = System.Text.Encoding.UTF8.GetBytes(a);
+        var bb = System.Text.Encoding.UTF8.GetBytes(b);
+        if (ab.Length != bb.Length) return false;
+        return CryptographicOperations.FixedTimeEquals(ab, bb);
+    }
 }

@@ -69,14 +69,14 @@ internal static class TokenExchangeEndpoint {
         }
 
         var expiresAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (completed.ExpiresIn - 60) * 1000;
-        var mcpToken = await tokenStorage.CreateSessionAsync(
+        var (mcpToken, mcpRefresh) = await tokenStorage.CreateSessionAsync(
             completed.AccessToken, completed.RefreshToken, expiresAt).ConfigureAwait(false);
 
         return Results.Ok(new {
             access_token = mcpToken,
             token_type = "Bearer",
             expires_in = completed.ExpiresIn,
-            refresh_token = mcpToken
+            refresh_token = mcpRefresh
         });
     }
 
@@ -92,11 +92,19 @@ internal static class TokenExchangeEndpoint {
             });
         }
 
-        var session = tokenStorage.GetToken(refresh_token);
-        if (session == null || string.IsNullOrEmpty(session.RefreshToken)) {
-            logger.LogWarning("Refresh rejected — unknown session | mcp={Hint}", SecretRedactor.Hint(refresh_token));
+        var found = tokenStorage.FindByRefreshToken(refresh_token);
+        if (found is null) {
+            logger.LogWarning("Refresh rejected — unknown refresh token | mcr={Hint}",
+                SecretRedactor.Hint(refresh_token));
             return Results.BadRequest(new {
-                error = "invalid_grant", error_description = "Unknown or already-revoked refresh token"
+                error = "invalid_grant", error_description = "Unknown or already-rotated refresh token"
+            });
+        }
+        var mcpAccessToken = found.Value.Key;
+        var session = found.Value.Value;
+        if (string.IsNullOrEmpty(session.RefreshToken)) {
+            return Results.BadRequest(new {
+                error = "invalid_grant", error_description = "Session has no upstream refresh token"
             });
         }
 
@@ -119,7 +127,8 @@ internal static class TokenExchangeEndpoint {
         var response = await http.SendAsync(request).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) {
             var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            logger.LogError("HaloPSA refresh failed | status={Status} body={Body}", response.StatusCode, error);
+            logger.LogError("HaloPSA refresh failed | status={Status}", response.StatusCode);
+            _ = error; // body not logged: may contain PII / token fragments
             return Results.BadRequest(new {
                 error = "invalid_grant", error_description = "HaloPSA rejected the refresh token"
             });
@@ -131,16 +140,19 @@ internal static class TokenExchangeEndpoint {
         var newExpiresAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (expiresIn - 60) * 1000;
         var newRefresh = tokenData.refresh_token ?? session.RefreshToken;
 
-        await tokenStorage.UpdateSessionTokensAsync(refresh_token, tokenData.access_token, newRefresh, newExpiresAt).ConfigureAwait(false);
+        // One-time-use rotation: the supplied refresh_token is now invalid; client
+        // must use the new value we return.
+        var newMcpRefresh = await tokenStorage.RotateRefreshTokenAsync(
+            mcpAccessToken, tokenData.access_token, newRefresh, newExpiresAt).ConfigureAwait(false);
 
         logger.LogInformation("Refresh OK | mcp={Hint} expiresIn={Seconds}s",
-            SecretRedactor.Hint(refresh_token), expiresIn);
+            SecretRedactor.Hint(mcpAccessToken), expiresIn);
 
         return Results.Ok(new {
-            access_token = refresh_token,
+            access_token = mcpAccessToken,
             token_type = "Bearer",
             expires_in = expiresIn,
-            refresh_token
+            refresh_token = newMcpRefresh
         });
     }
 

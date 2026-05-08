@@ -6,7 +6,7 @@ namespace HaloPsaMcp.Modules.Authentication.Handlers;
 /// <summary>
 /// Wolverine handlers for token management commands
 /// </summary>
-internal static class InvalidateTokenHandler {
+public static class InvalidateTokenHandler {
     /// <summary>
     /// Handle InvalidateTokenCommand - removes token from validation cache
     /// </summary>

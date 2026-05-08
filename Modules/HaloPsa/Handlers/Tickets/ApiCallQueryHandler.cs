@@ -4,7 +4,7 @@ using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Handlers.Tickets;
 
-internal static class ApiCallQueryHandler
+public static class ApiCallQueryHandler
 {
     public static async Task<ApiCallResult> Handle(
         ApiCallQuery query,

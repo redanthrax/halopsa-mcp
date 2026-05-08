@@ -6,7 +6,7 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 /// don't require a round-trip to HaloPSA. The underlying HaloPSA token
 /// is exposed to downstream tool handlers via HttpContext.Items.
 /// </summary>
-internal class McpAuthenticationService {
+public class McpAuthenticationService {
     public const string McpTokenContextKey = "mcp.session_token";
     public const string HaloPsaTokenContextKey = "mcp.halopsa_token";
     public const string HaloPsaRefreshContextKey = "mcp.halopsa_refresh";

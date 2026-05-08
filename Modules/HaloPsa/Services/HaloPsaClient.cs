@@ -7,7 +7,7 @@ using HaloPsaMcp.Modules.HaloPsa.Models;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Services;
 
-internal class HaloPsaClient {
+public class HaloPsaClient {
     private readonly HaloPsaConfig _config;
     private readonly HttpClient _httpClient;
     private readonly ILogger<HaloPsaClient>? _logger;
@@ -291,10 +291,9 @@ internal class HaloPsaClient {
 
         if (!response.IsSuccessStatusCode) {
             _logger?.LogError(
-                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms body={ErrorBody}",
+                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
                 method, endpoint, (int)response.StatusCode,
-                requestBytes, bytes.Length, sw.ElapsedMilliseconds,
-                Encoding.UTF8.GetString(bytes));
+                requestBytes, bytes.Length, sw.ElapsedMilliseconds);
             throw new HttpRequestException($"API call failed: {response.StatusCode} - {Encoding.UTF8.GetString(bytes)}");
         }
 
@@ -315,9 +314,9 @@ internal class HaloPsaClient {
 
         if (!response.IsSuccessStatusCode) {
             _logger?.LogError(
-                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms body={ErrorBody}",
+                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
                 method, endpoint, (int)response.StatusCode,
-                requestBytes, Encoding.UTF8.GetByteCount(text), sw.ElapsedMilliseconds, text);
+                requestBytes, Encoding.UTF8.GetByteCount(text), sw.ElapsedMilliseconds);
             throw new HttpRequestException($"Report API failed: {response.StatusCode} - {text}");
         }
 

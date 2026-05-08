@@ -44,3 +44,11 @@ Configuration:
 - Client ID: {{ .Values.halopsa.clientId }}
 - Auth Base URL: {{ .Values.halopsa.authBaseUrl }}
 - Token Storage: {{ if .Values.persistence.enabled }}Persistent ({{ .Values.persistence.size }}){{ else }}EmptyDir (ephemeral){{ end }}
+- NetworkPolicy: {{ if .Values.networkPolicy.enabled }}enabled{{ else }}DISABLED (recommend enabling in prod){{ end }}
+- DCR Initial Access Token: {{ if .Values.dcrInitialAccessToken }}set ({{ "/register" }} gated){{ else }}NOT set ({{ "/register" }} is OPEN){{ end }}
+{{- if and .Values.podDisruptionBudget.enabled (eq (int .Values.replicaCount) 1) }}
+
+WARNING: PodDisruptionBudget is enabled with replicaCount=1. Single-replica
+deployments with RWO token PVC cannot scale; PDB will block voluntary evictions.
+Either set replicaCount > 1 (requires shared session backend) or disable PDB.
+{{- end }}

@@ -3,7 +3,7 @@ using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Handlers;
 
-internal static class GetAuthStatusQueryHandler
+public static class GetAuthStatusQueryHandler
 {
     public static async Task<GetAuthStatusResult> Handle(
         GetAuthStatusQuery query,

@@ -2,4 +2,4 @@ using System.Text.Json;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Tickets;
 
-internal record ListActionsResult(JsonElement Data);
+public record ListActionsResult(JsonElement Data);

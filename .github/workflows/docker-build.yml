@@ -9,6 +9,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,6 +41,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -45,3 +51,35 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          for tag in $TAGS; do
+            cosign sign --yes "${tag}@${DIGEST}"
+          done
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: redanthrax/halopsa-mcp@${{ steps.build.outputs.digest }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
+      - name: Generate build attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: index.docker.io/redanthrax/halopsa-mcp
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

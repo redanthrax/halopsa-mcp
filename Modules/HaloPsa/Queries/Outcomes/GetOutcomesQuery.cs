@@ -1,3 +1,3 @@
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Outcomes;
 
-internal record GetOutcomesQuery();
+public record GetOutcomesQuery();

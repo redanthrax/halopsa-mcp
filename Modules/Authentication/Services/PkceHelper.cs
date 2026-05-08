@@ -3,7 +3,7 @@ using System.Text;
 
 namespace HaloPsaMcp.Modules.Authentication.Services;
 
-internal static class PkceHelper {
+public static class PkceHelper {
     public static string GenerateCodeVerifier() {
         var bytes = new byte[32];
         RandomNumberGenerator.Fill(bytes);

@@ -11,7 +11,7 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 /// File-backed JSON at {TokenStorePath dir}/clients.json, encrypted with DataProtection.
 /// Bounded by MaxClients to defend against DCR-flooding attacks.
 /// </summary>
-internal sealed class ClientRegistrationStore : IDisposable {
+public sealed class ClientRegistrationStore : IDisposable {
     private const int MaxClients = 1000;
 
     private readonly string _filePath;

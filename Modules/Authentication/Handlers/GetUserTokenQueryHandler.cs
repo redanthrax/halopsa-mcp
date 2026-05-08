@@ -3,7 +3,7 @@ using HaloPsaMcp.Modules.Authentication.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Handlers;
 
-internal static class GetUserTokenQueryHandler
+public static class GetUserTokenQueryHandler
 {
     public static Task<GetUserTokenResult> Handle(
         GetUserTokenQuery query,

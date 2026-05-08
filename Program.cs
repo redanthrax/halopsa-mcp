@@ -7,6 +7,7 @@ using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Middleware;
 using HaloPsaMcp.Modules.Common.Models;
 using HaloPsaMcp.Modules.HaloPsa.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -24,6 +25,10 @@ var isHttpMode = args.Contains("--http");
 
 if (isHttpMode) {
     var builder = WebApplication.CreateBuilder(args);
+
+    // HTTP/AKS mode: never silently fall back to "default" session for handlers
+    // that lack an HttpContext. Each request must carry its own bearer.
+    TokenStorageService.DisableDefaultFallback = true;
 
     builder.Host.UseSerilog((context, config) => {
         config
@@ -50,6 +55,14 @@ if (isHttpMode) {
         o.ShutdownTimeout = TimeSpan.FromSeconds(30);
     });
 
+    // Trust the X-Forwarded-* headers from the in-cluster ingress controller so
+    // rate limits, redirect URLs, and HSTS reflect the real client + scheme.
+    builder.Services.Configure<ForwardedHeadersOptions>(o => {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+
     // Rate limiting on OAuth endpoints — defends /authorize, /token, /register
     // against brute-force PKCE / DCR-flooding attacks.
     builder.Services.AddRateLimiter(options => {
@@ -71,6 +84,11 @@ if (isHttpMode) {
                     QueueLimit = 0
                 }));
     });
+    builder.Services.AddHsts(o => {
+        o.Preload = true;
+        o.IncludeSubDomains = true;
+        o.MaxAge = TimeSpan.FromDays(180);
+    });
     builder.WebHost.ConfigureKestrel(options => {
         options.ListenAnyIP(appConfig.HttpPort);
     });
@@ -87,6 +105,8 @@ if (isHttpMode) {
 
     var app = builder.Build();
 
+    app.UseForwardedHeaders();
+    app.UseHsts();
     app.UseRateLimiter();
 
     MapHealthEndpoints(app, startedAt);
@@ -170,35 +190,39 @@ static void MapHealthEndpoints(WebApplication app, DateTime startedAt) {
         uptime_seconds = (long)(DateTime.UtcNow - startedAt).TotalSeconds
     }));
 
-    // Readiness — should this pod receive traffic? Returns 503 + details when
-    // a critical dependency is missing. Currently no dependency is critical
-    // enough at runtime to fail readiness; the schema catalog is informational
-    // (its absence degrades the halopsa_db_* tools but the server still works).
+    // Readiness — should this pod receive traffic? Returns 503 + a minimal body
+    // when a critical dependency is missing. Public probe endpoint: do NOT
+    // include session counts, schema dump timestamps, or any other detail that
+    // would aid reconnaissance. Set MCP_READY_VERBOSE=1 in trusted environments
+    // to expose detailed checks.
     app.MapGet("/ready", (SchemaCatalogService schema, TokenStorageService tokens) => {
-        var checks = new {
-            schema_catalog = new {
-                healthy = schema.IsLoaded,
-                table_count = schema.TableCount,
-                dumped_at = schema.DumpedAt
-            },
-            token_storage = new {
-                healthy = true,
-                session_count = tokens.SessionCount,
-                active_sessions = tokens.ActiveSessionCount
-            }
-        };
-
+        var verbose = string.Equals(
+            Environment.GetEnvironmentVariable("MCP_READY_VERBOSE"), "1", StringComparison.Ordinal);
         // token_storage is the only critical check today. Add Redis/DB checks
         // here when shared backends land.
-        var ready = checks.token_storage.healthy;
+        var ready = true; // token store is in-memory + persisted; healthy on boot
         var status = ready
             ? (schema.IsLoaded ? "ready" : "degraded")
             : "not_ready";
 
+        if (!verbose) {
+            return Results.Json(new { status }, statusCode: ready ? 200 : 503);
+        }
         return Results.Json(new {
             status,
             uptime_seconds = (long)(DateTime.UtcNow - startedAt).TotalSeconds,
-            checks
+            checks = new {
+                schema_catalog = new {
+                    healthy = schema.IsLoaded,
+                    table_count = schema.TableCount,
+                    dumped_at = schema.DumpedAt
+                },
+                token_storage = new {
+                    healthy = true,
+                    session_count = tokens.SessionCount,
+                    active_sessions = tokens.ActiveSessionCount
+                }
+            }
         }, statusCode: ready ? 200 : 503);
     });
 }

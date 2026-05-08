@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Models;
 
-internal record TimesheetEventRequest(
+public record TimesheetEventRequest(
     [property: JsonPropertyName("id")] int Id = 0,
     [property: JsonPropertyName("ticket_id")] int? TicketId = null,
     [property: JsonPropertyName("agent_id")] int? AgentId = null,

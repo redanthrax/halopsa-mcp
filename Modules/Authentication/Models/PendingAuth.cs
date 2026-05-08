@@ -1,9 +1,11 @@
+using HaloPsaMcp.Modules.Authentication.Services;
+
 namespace HaloPsaMcp.Modules.Authentication.Models;
 
 /// <summary>
 /// Tracks a pending OAuth authorization flow, including PKCE verifier and client redirect info.
 /// </summary>
-internal class PendingAuth {
+public class PendingAuth : IExpiring {
     public required string HaloPsaVerifier { get; init; }
     public required string ClientRedirectUri { get; init; }
     public string? ClientState { get; init; }

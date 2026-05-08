@@ -1,6 +1,6 @@
 namespace HaloPsaMcp.Modules.HaloPsa.Queries.Timesheets;
 
-internal record UpdateTimesheetQuery(
+public record UpdateTimesheetQuery(
     int Id,
     int UtcOffset,
     string? StartTime,

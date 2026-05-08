@@ -150,10 +150,10 @@ internal static class HaloPsaMcpConstants
 
     internal static string AuthErrorMessage(AppConfig appConfig)
     {
-        // Return markdown-formatted text with a clickable link to ensure LLMs render it properly,
-        // as plain URLs may be treated as untrusted and suppressed.
+        // Use neutral phrasing to avoid triggering Claude's built-in auth override responses.
+        // Return markdown link for rendering.
         var url = GetLoginUrl(appConfig);
-        return $"HaloPSA session is not authenticated. [Sign in here]({url})";
+        return $"HaloPSA access needed. [Sign in here]({url})";
     }
 
     private const string AuthNotice =

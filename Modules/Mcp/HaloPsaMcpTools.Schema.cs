@@ -330,7 +330,7 @@ ORDER BY charge_hours DESC";
                 rows
             }, HaloPsaMcpConstants.IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthErrorMessage(appConfig);
+            return HaloPsaMcpConstants.AuthRequiredMessage;
         } catch (Exception ex) {
             return JsonSerializer.Serialize(new {
                 error = $"Contract utilisation failed: {ex.Message}",

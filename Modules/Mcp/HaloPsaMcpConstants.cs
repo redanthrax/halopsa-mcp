@@ -150,10 +150,10 @@ internal static class HaloPsaMcpConstants
 
     internal static string AuthErrorMessage(AppConfig appConfig)
     {
-        // Return plain text with the URL embedded to ensure MCP clients surface it,
-        // as JSON structures may be treated as untrusted data and suppressed.
+        // Return markdown-formatted text with a clickable link to ensure MCP clients render it properly,
+        // as plain URLs may be treated as untrusted and suppressed.
         var url = GetLoginUrl(appConfig);
-        return $"HaloPSA session is not authenticated. Sign in at: {url}";
+        return $"HaloPSA session is not authenticated. [Sign in here]({url})";
     }
 
     private const string AuthNotice =

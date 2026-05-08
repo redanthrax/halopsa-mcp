@@ -12,9 +12,9 @@ public class AuthErrorEnvelopeTests {
     };
 
     [Fact]
-    public void AuthErrorMessage_returns_plain_text_with_url() {
+    public void AuthErrorMessage_returns_markdown_with_clickable_link() {
         var message = HaloPsaMcpConstants.AuthErrorMessage(MakeConfig());
-        Assert.Equal("HaloPSA session is not authenticated. Sign in at: https://mcp.example.com/login", message);
+        Assert.Equal("HaloPSA session is not authenticated. [Sign in here](https://mcp.example.com/login)", message);
     }
 
     [Fact]

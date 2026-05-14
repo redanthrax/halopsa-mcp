@@ -64,22 +64,26 @@ if (isHttpMode) {
     });
 
     // Rate limiting on OAuth endpoints — defends /authorize, /token, /register
-    // against brute-force PKCE / DCR-flooding attacks.
+    // against brute-force PKCE / DCR-flooding attacks. Partition by DCR-issued
+    // client_id when present so multiple legitimate users behind a shared NAT
+    // (corporate egress IP) don't share a bucket; fall back to IP for /register
+    // where no client_id exists yet.
     builder.Services.AddRateLimiter(options => {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.AddPolicy("oauth", httpContext =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        options.AddPolicy("oauth", httpContext => {
+            var key = ResolveOAuthPartitionKey(httpContext);
+            return RateLimitPartition.GetFixedWindowLimiter(key,
                 _ => new FixedWindowRateLimiterOptions {
-                    PermitLimit = 30,
+                    PermitLimit = 60,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
-                }));
+                });
+        });
         options.AddPolicy("register", httpContext =>
             RateLimitPartition.GetFixedWindowLimiter(
                 httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon",
                 _ => new FixedWindowRateLimiterOptions {
-                    PermitLimit = 5,
+                    PermitLimit = 20,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 }));
@@ -240,4 +244,25 @@ static int ProbePort(int preferred) {
         fallback.Stop();
         return port;
     }
+}
+
+// Build a rate-limit partition key that doesn't collapse all users behind a
+// shared NAT into one bucket. Preference order:
+//   1. Authenticated MCP bearer (user-scoped, post-login traffic)
+//   2. DCR client_id from query/form (per-user during /authorize, /token)
+//   3. Remote IP (fallback for unauth + /register before client exists)
+static string ResolveOAuthPartitionKey(HttpContext ctx) {
+    var auth = ctx.Request.Headers.Authorization.ToString();
+    if (auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
+        return "tok:" + auth.AsSpan(7, Math.Min(16, auth.Length - 7)).ToString();
+    }
+    if (ctx.Request.Query.TryGetValue("client_id", out var qcid) && !string.IsNullOrEmpty(qcid)) {
+        return "cid:" + qcid.ToString();
+    }
+    if (ctx.Request.HasFormContentType
+        && ctx.Request.Form.TryGetValue("client_id", out var fcid)
+        && !string.IsNullOrEmpty(fcid)) {
+        return "cid:" + fcid.ToString();
+    }
+    return "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "anon");
 }

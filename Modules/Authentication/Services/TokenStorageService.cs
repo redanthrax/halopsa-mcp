@@ -25,6 +25,10 @@ public sealed class TokenStorageService : IDisposable {
     private readonly IDataProtector _protector;
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private readonly ConcurrentDictionary<string, UserTokenEntry> _memoryCache = new();
+    private readonly FileSystemWatcher? _watcher;
+    private string? _lastPersistedPayload;
+    private Timer? _reloadDebounce;
+    private static readonly TimeSpan ReloadDebounce = TimeSpan.FromMilliseconds(250);
 
     private static readonly JsonSerializerOptions JsonOptions = new() {
         WriteIndented = false
@@ -47,6 +51,97 @@ public sealed class TokenStorageService : IDisposable {
         // any request can hit the service. Avoids the race where requests
         // could land before the cache was populated.
         LoadTokensFromDisk();
+
+        // Watch the token file for out-of-band changes. When a second process
+        // (e.g. a Claude Desktop stdio worker spawned alongside a manual
+        // `dotnet run`) handles the OAuth callback, the file on disk is the
+        // shared source of truth. Without this watcher our in-memory cache
+        // silently diverges and GetDefaultToken returns stale/null entries.
+        try {
+            var dir = Path.GetDirectoryName(_tokenFilePath);
+            var name = Path.GetFileName(_tokenFilePath);
+            if (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(name)) {
+                _watcher = new FileSystemWatcher(dir, name) {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
+                    EnableRaisingEvents = true
+                };
+                _watcher.Changed += OnTokenFileChanged;
+                _watcher.Created += OnTokenFileChanged;
+                _watcher.Renamed += OnTokenFileChanged;
+            }
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "Could not start token-file watcher; cross-process token sync disabled");
+        }
+    }
+
+    private void OnTokenFileChanged(object sender, FileSystemEventArgs e) {
+        // Debounce: editors and our own writes can fire multiple events back-to-back.
+        _reloadDebounce?.Dispose();
+        _reloadDebounce = new Timer(_ => {
+            try {
+                ReloadIfChanged();
+            } catch (Exception ex) {
+                _logger.LogWarning(ex, "Token-file reload failed");
+            }
+        }, null, ReloadDebounce, Timeout.InfiniteTimeSpan);
+    }
+
+    private void ReloadIfChanged() {
+        if (!File.Exists(_tokenFilePath)) {
+            return;
+        }
+        string raw;
+        _fileLock.Wait();
+        try {
+            raw = File.ReadAllText(_tokenFilePath);
+        } catch (IOException) {
+            // Another process mid-write; the next event will retry.
+            _fileLock.Release();
+            return;
+        } finally {
+            if (_fileLock.CurrentCount == 0) {
+                _fileLock.Release();
+            }
+        }
+
+        if (string.Equals(raw, _lastPersistedPayload, StringComparison.Ordinal)) {
+            return; // We wrote this; nothing to do.
+        }
+
+        string json;
+        try {
+            json = _protector.Unprotect(raw);
+        } catch (CryptographicException) {
+            json = raw; // legacy plaintext, same fallback as initial load
+        }
+
+        ConcurrentDictionary<string, UserTokenEntry>? incoming;
+        try {
+            incoming = JsonSerializer.Deserialize<ConcurrentDictionary<string, UserTokenEntry>>(json);
+        } catch (JsonException ex) {
+            _logger.LogWarning(ex, "Token file changed but content is unparseable; ignoring");
+            return;
+        }
+        if (incoming is null) {
+            return;
+        }
+
+        var added = 0;
+        var removed = 0;
+        foreach (var kvp in incoming) {
+            _memoryCache[kvp.Key] = kvp.Value;
+            added++;
+        }
+        foreach (var key in _memoryCache.Keys.ToArray()) {
+            if (!incoming.ContainsKey(key)) {
+                _memoryCache.TryRemove(key, out _);
+                removed++;
+            }
+        }
+        _lastPersistedPayload = raw;
+        _logger.LogInformation(
+            "Reloaded token store from disk | sessions={Total} addedOrUpdated={Added} removed={Removed}",
+            _memoryCache.Count, added, removed);
     }
 
     /// <summary>Generates a new opaque MCP session token (mcp_{base64url(32)}).</summary>
@@ -219,6 +314,7 @@ public sealed class TokenStorageService : IDisposable {
             var json = JsonSerializer.Serialize(_memoryCache, JsonOptions);
             var protectedPayload = _protector.Protect(json);
             await File.WriteAllTextAsync(_tokenFilePath, protectedPayload).ConfigureAwait(false);
+            _lastPersistedPayload = protectedPayload;
             TrySetUnixPermissions(_tokenFilePath);
         } catch (Exception ex) {
             _logger.LogError(ex, "Failed to persist token store");
@@ -235,6 +331,7 @@ public sealed class TokenStorageService : IDisposable {
         _fileLock.Wait();
         try {
             var raw = File.ReadAllText(_tokenFilePath);
+            _lastPersistedPayload = raw;
             string json;
             try {
                 json = _protector.Unprotect(raw);
@@ -277,6 +374,8 @@ public sealed class TokenStorageService : IDisposable {
     }
 
     public void Dispose() {
+        _watcher?.Dispose();
+        _reloadDebounce?.Dispose();
         _fileLock.Dispose();
         GC.SuppressFinalize(this);
     }

@@ -78,7 +78,7 @@ jobs:
           vuln-type: 'os,library'
 
       - name: Generate build attestation
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: index.docker.io/redanthrax/halopsa-mcp
           subject-digest: ${{ steps.build.outputs.digest }}

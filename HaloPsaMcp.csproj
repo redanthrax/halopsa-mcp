@@ -29,7 +29,7 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.3.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-    <PackageReference Include="WolverineFx" Version="5.39.1" />
+    <PackageReference Include="WolverineFx" Version="5.39.3" />
   </ItemGroup>
 
 </Project>

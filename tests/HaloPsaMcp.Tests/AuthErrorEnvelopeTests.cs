@@ -8,12 +8,17 @@ namespace HaloPsaMcp.Tests;
 public class AuthErrorEnvelopeTests {
     private static AppConfig MakeConfig() => new() {
         AuthBaseUrl = "https://mcp.example.com",
+        PublicBaseUrl = "https://mcp.example.com",
         HttpPort = 3000,
     };
 
     [Fact]
     public void AuthErrorMessage_returns_plain_text_for_localhost() {
-        var config = new AppConfig { AuthBaseUrl = "http://localhost:3000", HttpPort = 3000 };
+        var config = new AppConfig {
+            AuthBaseUrl = "http://localhost:3000",
+            PublicBaseUrl = "http://localhost:3000",
+            HttpPort = 3000
+        };
         var message = HaloPsaMcpConstants.AuthErrorMessage(config);
         Assert.Equal("HaloPSA access needed. Open http://localhost:3000/login in your browser to sign in.", message);
     }

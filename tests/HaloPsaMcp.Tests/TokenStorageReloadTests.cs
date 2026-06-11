@@ -34,11 +34,11 @@ public class TokenStorageReloadTests
         try
         {
             // Process A: empty store at startup.
-            using var a = new TokenStorageService(MakeConfig(path), dp, NullLogger<TokenStorageService>.Instance);
+            using var a = new FileTokenStore(MakeConfig(path), dp, NullLogger<FileTokenStore>.Instance);
             Assert.Null(a.GetDefaultToken());
 
             // Process B: writes a session and persists to disk.
-            using (var b = new TokenStorageService(MakeConfig(path), dp, NullLogger<TokenStorageService>.Instance))
+            using (var b = new FileTokenStore(MakeConfig(path), dp, NullLogger<FileTokenStore>.Instance))
             {
                 var futureExpiry = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds();
                 await b.CreateSessionAsync("halo_access_xyz", "halo_refresh_xyz", futureExpiry);

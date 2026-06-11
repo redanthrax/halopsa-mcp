@@ -22,7 +22,7 @@ internal class AuthenticationModuleRegistrar : IModuleRegistrar {
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(keyDir));
 
-        services.AddSingleton<TokenStorageService>();
+        services.AddTokenStore();
         services.AddSingleton<ClientRegistrationStore>();
         services.AddSingleton<McpAuthenticationService>();
         services.AddHostedService<CleanupHostedService>();

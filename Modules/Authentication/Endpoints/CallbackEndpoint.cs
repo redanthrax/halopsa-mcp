@@ -21,7 +21,7 @@ internal static class CallbackEndpoint {
         AppConfig config,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
-        TokenStorageService tokenStorage,
+        ITokenStore tokenStorage,
         ILogger<CallbackMarker> logger,
         [FromQuery] string? code,
         [FromQuery] string? state,

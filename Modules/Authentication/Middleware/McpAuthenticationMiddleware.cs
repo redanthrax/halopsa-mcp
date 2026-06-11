@@ -6,7 +6,7 @@ namespace HaloPsaMcp.Modules.Authentication.Middleware;
 
 /// <summary>
 /// Authenticates MCP requests using opaque MCP session Bearer tokens.
-/// Validation is purely local (TokenStorageService lookup); HaloPSA tokens
+/// Validation is purely local (ITokenStore lookup); HaloPSA tokens
 /// are loaded into HttpContext.Items for downstream tool handlers.
 /// </summary>
 internal class McpAuthenticationMiddleware {
@@ -18,7 +18,7 @@ internal class McpAuthenticationMiddleware {
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, TokenStorageService tokenStorage, AppConfig appConfig) {
+    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, ITokenStore tokenStorage, AppConfig appConfig) {
         var sw = Stopwatch.StartNew();
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         string? token = null;

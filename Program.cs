@@ -28,7 +28,7 @@ if (isHttpMode) {
 
     // HTTP/AKS mode: never silently fall back to "default" session for handlers
     // that lack an HttpContext. Each request must carry its own bearer.
-    TokenStorageService.DisableDefaultFallback = true;
+    TokenStoreRuntime.DisableDefaultFallback = true;
 
     builder.Host.UseSerilog((context, config) => {
         config
@@ -199,12 +199,11 @@ static void MapHealthEndpoints(WebApplication app, DateTime startedAt) {
     // include session counts, schema dump timestamps, or any other detail that
     // would aid reconnaissance. Set MCP_READY_VERBOSE=1 in trusted environments
     // to expose detailed checks.
-    app.MapGet("/ready", (SchemaCatalogService schema, TokenStorageService tokens) => {
+    app.MapGet("/ready", async (SchemaCatalogService schema, ITokenStore tokens) => {
         var verbose = string.Equals(
             Environment.GetEnvironmentVariable("MCP_READY_VERBOSE"), "1", StringComparison.Ordinal);
-        // token_storage is the only critical check today. Add Redis/DB checks
-        // here when shared backends land.
-        var ready = true; // token store is in-memory + persisted; healthy on boot
+        var tokenStoreHealthy = await tokens.CheckHealthAsync().ConfigureAwait(false);
+        var ready = tokenStoreHealthy;
         var status = ready
             ? (schema.IsLoaded ? "ready" : "degraded")
             : "not_ready";
@@ -222,7 +221,8 @@ static void MapHealthEndpoints(WebApplication app, DateTime startedAt) {
                     dumped_at = schema.DumpedAt
                 },
                 token_storage = new {
-                    healthy = true,
+                    healthy = tokenStoreHealthy,
+                    backend = tokens.Backend,
                     session_count = tokens.SessionCount,
                     active_sessions = tokens.ActiveSessionCount
                 }

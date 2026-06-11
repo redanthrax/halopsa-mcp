@@ -32,7 +32,9 @@ public class AppConfig {
             ?? throw new InvalidOperationException("HALOPSA_URL environment variable is required");
         var clientId = config["HALOPSA_CLIENT_ID"]
             ?? throw new InvalidOperationException("HALOPSA_CLIENT_ID environment variable is required");
+        var tokenStoreBackend = config["HALOPSA_TOKEN_STORE_BACKEND"] ?? "file";
         var tokenStorePath = config["HALOPSA_TOKEN_STORE"] ?? "./data/tokens.json";
+        var redisConnection = config["HALOPSA_REDIS_CONNECTION"];
         var authBaseUrl = config["AUTH_BASE_URL"] ?? "";
         var publicBaseUrl = config["HALOPSA_PUBLIC_URL"]
             ?? config["PUBLIC_BASE_URL"]
@@ -51,7 +53,9 @@ public class AppConfig {
                 Url = haloPsaUrl,
                 ClientId = clientId,
                 ClientSecret = config["HALOPSA_CLIENT_SECRET"],
-                TokenStorePath = tokenStorePath
+                TokenStoreBackend = tokenStoreBackend,
+                TokenStorePath = tokenStorePath,
+                RedisConnection = redisConnection
             },
             AuthBaseUrl = authBaseUrl,
             PublicBaseUrl = publicBaseUrl,

@@ -12,7 +12,7 @@ namespace HaloPsaMcp.Tests;
 internal static class HaloPsaTestHelpers {
     internal sealed class Fixture : IAsyncDisposable {
         private readonly string _tempDir;
-        private readonly TokenStorageService _tokenStorage;
+        private readonly ITokenStore _tokenStorage;
 
         public StubHttpHandler Handler { get; }
         public HaloPsaClientFactory Factory { get; }
@@ -20,7 +20,7 @@ internal static class HaloPsaTestHelpers {
 
         private Fixture(
             string tempDir,
-            TokenStorageService tokenStorage,
+            ITokenStore tokenStorage,
             StubHttpHandler handler,
             HaloPsaClientFactory factory) {
             _tempDir = tempDir;
@@ -46,8 +46,8 @@ internal static class HaloPsaTestHelpers {
             };
 
             var dp = DataProtectionProvider.Create("HaloPsaMcp.Tests");
-            var tokenStorage = new TokenStorageService(
-                config, dp, NullLogger<TokenStorageService>.Instance);
+            var tokenStorage = new FileTokenStore(
+                config, dp, NullLogger<FileTokenStore>.Instance);
 
             var futureExpiry = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds();
             await tokenStorage.CreateSessionAsync("halo_access_test", "halo_refresh_test", futureExpiry);

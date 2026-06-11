@@ -4,14 +4,14 @@ namespace HaloPsaMcp.Modules.Authentication.Services;
 
 /// <summary>
 /// Periodic background sweep that removes expired entries from
-/// OAuthStateManager and TokenStorageService. Runs every 5 minutes.
+/// OAuthStateManager and ITokenStore. Runs every 5 minutes.
 /// </summary>
 internal sealed class CleanupHostedService : BackgroundService {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
-    private readonly TokenStorageService _tokens;
+    private readonly ITokenStore _tokens;
     private readonly ILogger<CleanupHostedService> _logger;
 
-    public CleanupHostedService(TokenStorageService tokens, ILogger<CleanupHostedService> logger) {
+    public CleanupHostedService(ITokenStore tokens, ILogger<CleanupHostedService> logger) {
         _tokens = tokens;
         _logger = logger;
     }

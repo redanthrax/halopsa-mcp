@@ -49,8 +49,16 @@ spec:
         {{- end }}
         - name: HTTP_PORT
           value: {{ .Values.ports.http | quote }}
+        - name: HALOPSA_TOKEN_STORE_BACKEND
+          value: {{ .Values.halopsa.tokenStore.backend | quote }}
         - name: HALOPSA_TOKEN_STORE
-          value: {{ .Values.halopsa.tokenStorePath | quote }}
+          value: {{ .Values.halopsa.tokenStore.path | quote }}
+        {{- if eq .Values.halopsa.tokenStore.backend "redis" }}
+        {{- if .Values.halopsa.redisConnection }}
+        - name: HALOPSA_REDIS_CONNECTION
+          value: {{ .Values.halopsa.redisConnection | quote }}
+        {{- end }}
+        {{- end }}
         - name: HALOPSA_DPKEY_DIR
           value: {{ .Values.halopsa.dpKeyDir | quote }}
         - name: HALOPSA_REDIRECT_URI

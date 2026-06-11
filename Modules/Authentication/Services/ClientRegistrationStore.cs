@@ -65,7 +65,7 @@ public sealed class ClientRegistrationStore : IDisposable {
             var json = JsonSerializer.Serialize(_cache, JsonOptions);
             var payload = _protector.Protect(json);
             await File.WriteAllTextAsync(_filePath, payload).ConfigureAwait(false);
-            TokenStorageService.TrySetUnixPermissions(_filePath);
+            UnixFilePermissions.TrySetUserReadWrite(_filePath);
         } catch (Exception ex) {
             _logger.LogError(ex, "Failed to persist client registrations");
         } finally {

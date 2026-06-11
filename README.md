@@ -152,6 +152,13 @@ For a confidential client (Client ID + Secret method) provide the secret without
 --set-file halopsa.clientSecret=./halopsa-client-secret.txt
 ```
 
+For multiple replicas (HA), use a shared Redis session store:
+```bash
+--set replicaCount=3 \
+--set halopsa.tokenStore.backend=redis \
+--set halopsa.redisConnection='redis-master:6379,password=...,ssl=true'
+```
+
 Production checklist:
 - [ ] TLS terminated by ingress (cert-manager or Azure Application Gateway)
 - [ ] `networkPolicy.enabled=true`
@@ -165,7 +172,9 @@ Production checklist:
 
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `replicaCount` | `1` | **Keep at 1** — token store is on a RWO PVC. HA needs a shared backend (Redis). |
+| `replicaCount` | `1` | Increase when `halopsa.tokenStore.backend=redis`. |
+| `halopsa.tokenStore.backend` | `file` | `file` for single replica; `redis` for HA. |
+| `halopsa.redisConnection` | `""` | StackExchange.Redis connection string when backend is `redis`. |
 | `image.tag` | `""` (Chart.appVersion) | Pin to a SemVer or `@sha256:...` digest. |
 | `serviceAccount.create` | `true` | |
 | `serviceAccount.automountServiceAccountToken` | `false` | App does not call the K8s API. |
@@ -191,7 +200,9 @@ Production checklist:
 | Env | Default | Purpose |
 |-----|---------|---------|
 | `HALOPSA_CLIENT_SECRET` | _(unset)_ | For "Client ID + Secret" method only |
-| `HALOPSA_TOKEN_STORE` | `./data/tokens.json` | Encrypted token store path |
+| `HALOPSA_TOKEN_STORE_BACKEND` | `file` | `file` (default) or `redis` for multi-replica HTTP |
+| `HALOPSA_TOKEN_STORE` | `./data/tokens.json` | Encrypted token store path (file backend) |
+| `HALOPSA_REDIS_CONNECTION` | _(unset)_ | Redis connection string when backend is `redis` |
 | `HALOPSA_DPKEY_DIR` | `./data/dp-keys` | DataProtection key ring |
 | `HTTP_PORT` | `3000` | Listener port |
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
@@ -222,7 +233,7 @@ Production checklist:
 
 ## Limitations
 
-- **Single replica.** Token store is local file + RWO PVC. Multi-replica needs a shared backend (Redis on the roadmap).
+- **File backend is single-replica.** Default `HALOPSA_TOKEN_STORE_BACKEND=file` uses a local encrypted JSON file + RWO PVC. For `replicaCount > 1`, set `halopsa.tokenStore.backend=redis` and provide `HALOPSA_REDIS_CONNECTION` (private Redis, TLS recommended).
 - **DataProtection keys on PVC.** Surviving cluster rebuilds requires backing up the PVC or wrapping with Azure Key Vault.
 - **Single HaloPSA tenant per deployment.**
 

@@ -293,7 +293,7 @@ internal partial class HaloPsaMcpTools {
     public static string HalopsaWhoami(
         AppConfig appConfig,
         IHttpContextAccessor? httpContextAccessor,
-        TokenStorageService? tokenStorage) {
+        ITokenStore? tokenStorage) {
         string? haloAccess = null;
         long? expiresAt = null;
 

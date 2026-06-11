@@ -39,6 +39,6 @@ When reviewing or reporting issues, pay particular attention to:
 ## Safe deployment reminders
 
 - Set `MCP_DCR_INITIAL_ACCESS_TOKEN` for any internet-exposed HTTP deployment
-- Keep `replicaCount: 1` until a shared token backend is available
+- Use `halopsa.tokenStore.backend=redis` when `replicaCount > 1`; keep Redis on a private network with TLS
 - Pin Docker images to a SemVer tag or digest, not `latest`
 - Rotate DataProtection keys and token stores according to your org policy

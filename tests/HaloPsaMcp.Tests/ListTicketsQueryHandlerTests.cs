@@ -42,7 +42,7 @@ public class ListTicketsQueryHandlerTests {
 
     [Fact]
     public async Task Throws_when_no_authenticated_session() {
-        TokenStorageService.DisableDefaultFallback = true;
+        TokenStoreRuntime.DisableDefaultFallback = true;
         try {
             await using var fixture = await HaloPsaTestHelpers.Fixture.CreateAsync(new StubHttpHandler());
 
@@ -52,7 +52,7 @@ public class ListTicketsQueryHandlerTests {
                     fixture.Factory,
                     fixture.ContextAccessor));
         } finally {
-            TokenStorageService.DisableDefaultFallback = false;
+            TokenStoreRuntime.DisableDefaultFallback = false;
         }
     }
 }

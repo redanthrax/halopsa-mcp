@@ -21,7 +21,7 @@ internal static class TokenExchangeEndpoint {
     }
 
     private static async Task<IResult> TokenExchange(
-        TokenStorageService tokenStorage,
+        ITokenStore tokenStorage,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
         ILogger<TokenMarker> logger,
@@ -40,7 +40,7 @@ internal static class TokenExchangeEndpoint {
     }
 
     private static async Task<IResult> HandleAuthorizationCode(
-        TokenStorageService tokenStorage,
+        ITokenStore tokenStorage,
         ILogger logger,
         string? code,
         string? code_verifier) {
@@ -81,7 +81,7 @@ internal static class TokenExchangeEndpoint {
     }
 
     private static async Task<IResult> HandleRefreshToken(
-        TokenStorageService tokenStorage,
+        ITokenStore tokenStorage,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
         ILogger logger,

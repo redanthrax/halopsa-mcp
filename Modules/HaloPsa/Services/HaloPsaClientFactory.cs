@@ -6,22 +6,22 @@ namespace HaloPsaMcp.Modules.HaloPsa.Services;
 /// <summary>
 /// Factory for creating HaloPsaClient instances with per-user tokens.
 /// Resolves the active session from HttpContext (HTTP mode) or
-/// TokenStorageService.GetDefaultToken (stdio mode). On refresh both the
-/// in-flight HttpContext and the persistent TokenStorageService are updated.
+/// ITokenStore.GetDefaultToken (stdio mode). On refresh both the
+/// in-flight HttpContext and the persistent ITokenStore are updated.
 /// </summary>
 public class HaloPsaClientFactory {
     private const string HttpClientName = "halopsa";
 
     private readonly HaloPsaConfig _baseConfig;
     private readonly McpAuthenticationService _authService;
-    private readonly TokenStorageService _tokenStorage;
+    private readonly ITokenStore _tokenStorage;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HaloPsaClientFactory> _logger;
 
     public HaloPsaClientFactory(
         HaloPsaConfig baseConfig,
         McpAuthenticationService authService,
-        TokenStorageService tokenStorage,
+        ITokenStore tokenStorage,
         IHttpClientFactory httpClientFactory,
         ILogger<HaloPsaClientFactory> logger) {
         _baseConfig = baseConfig;
@@ -34,7 +34,7 @@ public class HaloPsaClientFactory {
     /// <summary>
     /// Build a client for the active session. Resolves the user's HaloPSA
     /// access/refresh tokens from the HTTP context if present, otherwise
-    /// falls back to the stdio default session in TokenStorageService.
+    /// falls back to the stdio default session in ITokenStore.
     /// Returns null when no authenticated session is available.
     /// </summary>
     public HaloPsaClient? CreateClient(HttpContext? context) {

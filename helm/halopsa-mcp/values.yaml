@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 1  # Keep at 1 for stateful token storage
+replicaCount: 1  # Increase when tokenStore.backend=redis
 
 image:
   repository: redanthrax/halopsa-mcp
@@ -114,8 +114,12 @@ halopsa:
   # Set when externally reachable URL differs from OAuth base (e.g., behind reverse proxy).
   publicBaseUrl: ""
   
-  # Token storage path (inside container)
-  tokenStorePath: "/app/data/tokens.json"
+  # Token store: file (default) or redis (required for replicaCount > 1)
+  tokenStore:
+    backend: file
+    path: "/app/data/tokens.json"
+  # StackExchange.Redis connection string when tokenStore.backend=redis
+  redisConnection: ""
   # DataProtection keys directory (encrypts tokens.json + clients.json at rest).
   # Lives on the same PVC by default; consider Azure Key Vault wrap for prod.
   dpKeyDir: "/app/data/dp-keys"

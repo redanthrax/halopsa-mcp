@@ -1,7 +1,7 @@
 namespace HaloPsaMcp.Modules.Authentication.Services;
 
 /// <summary>
-/// Validates MCP session tokens against the local TokenStorageService.
+/// Validates MCP session tokens against the local ITokenStore.
 /// Validation is purely local — opaque mcp_ tokens are issued by us and
 /// don't require a round-trip to HaloPSA. The underlying HaloPSA token
 /// is exposed to downstream tool handlers via HttpContext.Items.
@@ -12,11 +12,11 @@ public class McpAuthenticationService {
     public const string HaloPsaRefreshContextKey = "mcp.halopsa_refresh";
     public const string HaloPsaExpiryContextKey = "mcp.halopsa_expiry";
 
-    private readonly TokenStorageService _storage;
+    private readonly ITokenStore _storage;
     private readonly ILogger<McpAuthenticationService> _logger;
 
     public McpAuthenticationService(
-        TokenStorageService storage,
+        ITokenStore storage,
         ILogger<McpAuthenticationService> logger) {
         _storage = storage;
         _logger = logger;

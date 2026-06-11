@@ -357,6 +357,10 @@ Use `halopsa_get_schema` to see example queries for joining these tables.
 - .NET 10.0 SDK (for local development)
 - HaloPSA instance with OAuth client registered
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

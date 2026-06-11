@@ -19,7 +19,7 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage — alpine cuts ~100 MB vs the default debian image
 # Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:1e37a8236c558ae31bd6bc8144e38e6036b73cf1b0616fe56d79e60babb9d93b
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f03685b2735e0d3d25d6c60672e74b21bb6334f1402f71bae2d2cf02307163cd
 
 # Non-root user (alpine has addgroup/adduser, not groupadd/useradd)
 RUN addgroup -g 1001 -S dotnet && adduser -S -u 1001 -G dotnet dotnet

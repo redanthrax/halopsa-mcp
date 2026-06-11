@@ -127,7 +127,7 @@ docker run -d \
   -e HALOPSA_CLIENT_ID=your-client-id \
   -e AUTH_BASE_URL=https://your-domain.com \
   -e HALOPSA_DPKEY_DIR=/app/data/dp-keys \
-  redanthrax/halopsa-mcp:latest
+  redanthrax/halopsa-mcp:0.1.0
 ```
 
 If you expose this to the public internet, also set `MCP_DCR_INITIAL_ACCESS_TOKEN` so `/register` is gated, and front it with a TLS-terminating reverse proxy (Caddy, Traefik, nginx).
@@ -339,7 +339,7 @@ The schema folder is auto-copied next to the binary at build/publish. Override t
 
 | Tool | Description |
 |------|-------------|
-| `halopsa_api_call` | Make a direct HaloPSA REST call against an arbitrary endpoint. Use for endpoints not covered by the typed tools. |
+| `halopsa_api_call` | Direct HaloPSA REST call for endpoints not covered by typed tools. Path must start with `/api/` (GET/POST/PUT only). |
 
 ## Troubleshooting
 

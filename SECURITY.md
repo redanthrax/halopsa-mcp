@@ -46,3 +46,7 @@ When reviewing or reporting issues, pay particular attention to:
 - Pin Docker images to a SemVer tag or digest, not `latest`
 - Rotate DataProtection keys and token stores according to your org policy
 - HaloPSA upstream error bodies and full SQL are **not** written to Information-level logs or returned to clients
+- Redis session payloads are **encrypted with DataProtection** before write (same key ring as file backend)
+- `halopsa_api_call` is restricted to relative `/api/` paths (GET/POST/PUT only)
+- NuGet dependencies are **lockfile-pinned** (`packages.lock.json`); CI restores with `--locked-mode`
+- PR CI runs **Trivy** on a built Docker image; releases no longer publish a `latest` tag

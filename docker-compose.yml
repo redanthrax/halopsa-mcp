@@ -25,8 +25,9 @@ services:
       HTTP_PORT: "3000"
       AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
       HALOPSA_PUBLIC_URL: ${HALOPSA_PUBLIC_URL:-}
-      # Gate /register (DCR). When set, clients must present this Bearer token.
+      # Gate /register (DCR). Required for --http unless MCP_ALLOW_OPEN_DCR=1 (local only).
       MCP_DCR_INITIAL_ACCESS_TOKEN: ${MCP_DCR_INITIAL_ACCESS_TOKEN:-}
+      MCP_ALLOW_OPEN_DCR: ${MCP_ALLOW_OPEN_DCR:-1}
       # Set to "1" only for trusted in-cluster scrape targets.
       MCP_READY_VERBOSE: ${MCP_READY_VERBOSE:-0}
       LOG_FORMAT: ${LOG_FORMAT:-json}

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.RateLimiting;
 using HaloPsaMcp.Modules.Mcp;
 using HaloPsaMcp.Modules;
@@ -6,8 +8,8 @@ using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Middleware;
 using HaloPsaMcp.Modules.Common.Models;
+using HaloPsaMcp.Modules.Common.Security;
 using HaloPsaMcp.Modules.HaloPsa.Services;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -24,6 +26,8 @@ var logFormat = (Environment.GetEnvironmentVariable("LOG_FORMAT") ?? "text").ToL
 var isHttpMode = args.Contains("--http");
 
 if (isHttpMode) {
+    HttpStartupGuards.EnsureHttpModeSecurity();
+
     var builder = WebApplication.CreateBuilder(args);
 
     // HTTP/AKS mode: never silently fall back to "default" session for handlers
@@ -55,13 +59,8 @@ if (isHttpMode) {
         o.ShutdownTimeout = TimeSpan.FromSeconds(30);
     });
 
-    // Trust the X-Forwarded-* headers from the in-cluster ingress controller so
-    // rate limits, redirect URLs, and HSTS reflect the real client + scheme.
-    builder.Services.Configure<ForwardedHeadersOptions>(o => {
-        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-        o.KnownNetworks.Clear();
-        o.KnownProxies.Clear();
-    });
+    // Trust X-Forwarded-* only from TRUSTED_PROXY_CIDRS (private ranges by default).
+    TrustedProxyConfiguration.Configure(builder.Services);
 
     // Rate limiting on OAuth endpoints — defends /authorize, /token, /register
     // against brute-force PKCE / DCR-flooding attacks. Partition by DCR-issued
@@ -159,6 +158,18 @@ if (isHttpMode) {
         o.ShutdownTimeout = TimeSpan.FromSeconds(30);
     });
 
+    builder.Services.AddRateLimiter(options => {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("oauth", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                ResolveOAuthPartitionKey(httpContext),
+                _ => new FixedWindowRateLimiterOptions {
+                    PermitLimit = 60,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+    });
+
     var actualHttpPort = ProbePort(appConfig.HttpPort);
     if (actualHttpPort != appConfig.HttpPort) {
         AppConfigRuntime.EffectivePublicBaseUrl = $"http://localhost:{actualHttpPort}";
@@ -169,7 +180,11 @@ if (isHttpMode) {
     }
 
     builder.WebHost.ConfigureKestrel(options => {
-        options.ListenAnyIP(actualHttpPort);
+        if (HttpStartupGuards.StdioOAuthBindAllInterfaces()) {
+            options.ListenAnyIP(actualHttpPort);
+        } else {
+            options.ListenLocalhost(actualHttpPort);
+        }
     });
 
     builder.Host.UseWolverine(opts => {
@@ -186,6 +201,7 @@ if (isHttpMode) {
 
     var app = builder.Build();
 
+    app.UseRateLimiter();
     app.MapOAuthEndpoints();
     MapHealthEndpoints(app, startedAt);
 
@@ -265,7 +281,9 @@ static int ProbePort(int preferred) {
 static string ResolveOAuthPartitionKey(HttpContext ctx) {
     var auth = ctx.Request.Headers.Authorization.ToString();
     if (auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
-        return "tok:" + auth.AsSpan(7, Math.Min(16, auth.Length - 7)).ToString();
+        var token = auth["Bearer ".Length..];
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        return "tok:" + hash[..16];
     }
     if (ctx.Request.Query.TryGetValue("client_id", out var qcid) && !string.IsNullOrEmpty(qcid)) {
         return "cid:" + qcid.ToString();

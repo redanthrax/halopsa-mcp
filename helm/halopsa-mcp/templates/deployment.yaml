@@ -54,9 +54,18 @@ spec:
         - name: HALOPSA_TOKEN_STORE
           value: {{ .Values.halopsa.tokenStore.path | quote }}
         {{- if eq .Values.halopsa.tokenStore.backend "redis" }}
-        {{- if .Values.halopsa.redisConnection }}
+        {{- if .Values.halopsa.redis.existingSecret }}
         - name: HALOPSA_REDIS_CONNECTION
-          value: {{ .Values.halopsa.redisConnection | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.halopsa.redis.existingSecret | quote }}
+              key: {{ .Values.halopsa.redis.existingSecretKey | quote }}
+        {{- else if or .Values.halopsa.redis.connection .Values.halopsa.redisConnection }}
+        - name: HALOPSA_REDIS_CONNECTION
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "halopsa-mcp.fullname" . }}-secret
+              key: halopsa_redis_connection
         {{- end }}
         {{- end }}
         - name: HALOPSA_DPKEY_DIR

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -54,11 +55,10 @@ public class HaloPsaClient {
         sw.Stop();
 
         if (!response.IsSuccessStatusCode) {
-            var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            _logger?.LogError(
-                "Token refresh failed | status={StatusCode} elapsed={ElapsedMs}ms error={Error}",
-                response.StatusCode, sw.ElapsedMilliseconds, error);
-            throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {error}");
+            var errorBytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            HaloPsaResponseSanitizer.LogFailure(
+                _logger, "token refresh", response.StatusCode, errorBytes.Length, sw.ElapsedMilliseconds);
+            throw HaloPsaResponseSanitizer.ApiException("Token refresh", response.StatusCode);
         }
 
         _logger?.LogInformation("Token refresh succeeded | elapsed={ElapsedMs}ms", sw.ElapsedMilliseconds);
@@ -215,7 +215,10 @@ public class HaloPsaClient {
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
 
-        _logger?.LogInformation("HaloPSA SQL | req={RequestBytes}B sql={Sql}", bodyBytes, sql);
+        _logger?.LogInformation(
+            "HaloPSA SQL | req={RequestBytes}B sqlLen={SqlLen} sqlHash={SqlHash}",
+            bodyBytes, sql.Length, HaloPsaResponseSanitizer.SqlLogFingerprint(sql));
+        _logger?.LogDebug("HaloPSA SQL query | sql={Sql}", sql);
 
         var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -290,11 +293,9 @@ public class HaloPsaClient {
         sw.Stop();
 
         if (!response.IsSuccessStatusCode) {
-            _logger?.LogError(
-                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
-                method, endpoint, (int)response.StatusCode,
-                requestBytes, bytes.Length, sw.ElapsedMilliseconds);
-            throw new HttpRequestException($"API call failed: {response.StatusCode} - {Encoding.UTF8.GetString(bytes)}");
+            HaloPsaResponseSanitizer.LogFailure(
+                _logger, $"{method} {endpoint}", response.StatusCode, bytes.Length, sw.ElapsedMilliseconds);
+            throw HaloPsaResponseSanitizer.ApiException($"{method} {endpoint}", response.StatusCode);
         }
 
         _logger?.LogInformation(
@@ -313,11 +314,10 @@ public class HaloPsaClient {
         sw.Stop();
 
         if (!response.IsSuccessStatusCode) {
-            _logger?.LogError(
-                "HaloPSA {Method} {Endpoint} failed | status={StatusCode} req={RequestBytes}B res={ResponseBytes}B elapsed={ElapsedMs}ms",
-                method, endpoint, (int)response.StatusCode,
-                requestBytes, Encoding.UTF8.GetByteCount(text), sw.ElapsedMilliseconds);
-            throw new HttpRequestException($"Report API failed: {response.StatusCode} - {text}");
+            var bodyBytes = Encoding.UTF8.GetByteCount(text);
+            HaloPsaResponseSanitizer.LogFailure(
+                _logger, $"{method} {endpoint}", response.StatusCode, bodyBytes, sw.ElapsedMilliseconds);
+            throw HaloPsaResponseSanitizer.ApiException($"{method} {endpoint}", response.StatusCode);
         }
 
         _logger?.LogInformation(

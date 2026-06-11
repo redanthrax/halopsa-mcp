@@ -14,7 +14,8 @@ internal static class DirectLoginEndpoint
 {
     public static void MapDirectLogin(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/login", DirectLogin);
+        app.MapGet("/login", DirectLogin)
+            .RequireRateLimiting("oauth");
         app.MapGet("/success", LoginPages.Success);
         app.MapDesktopStatus();
     }

@@ -124,6 +124,7 @@ data/
 *.secret
 *secret.yaml
 *secret.yml
+!helm/**/templates/secret.yaml
 !*.example
 !*-example.yaml
 !*-example.yml

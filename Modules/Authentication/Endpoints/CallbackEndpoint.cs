@@ -14,7 +14,8 @@ namespace HaloPsaMcp.Modules.Authentication.Endpoints;
 /// </summary>
 internal static class CallbackEndpoint {
     public static void MapCallback(this IEndpointRouteBuilder app) {
-        app.MapGet("/callback", Callback);
+        app.MapGet("/callback", Callback)
+            .RequireRateLimiting("oauth");
     }
 
     private static async Task<IResult> Callback(
@@ -57,9 +58,13 @@ internal static class CallbackEndpoint {
             var response = await httpClient.PostAsync(
                 tokenUrl, new FormUrlEncodedContent(parameters)).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) {
-                var errorText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                logger.LogError("HaloPSA token exchange failed | status={Status}", response.StatusCode);
-                return Results.Problem($"HaloPSA token exchange failed: {response.StatusCode} - {errorText}");
+                var errorBytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                logger.LogError(
+                    "HaloPSA token exchange failed | status={Status} bodyBytes={BodyBytes}",
+                    response.StatusCode, errorBytes.Length);
+                return Results.Problem(
+                    detail: $"HaloPSA token exchange failed ({(int)response.StatusCode}).",
+                    statusCode: (int)response.StatusCode);
             }
 
             var tokenData = await response.Content.ReadFromJsonAsync<TokenResponse>().ConfigureAwait(false)
@@ -97,7 +102,7 @@ internal static class CallbackEndpoint {
             return Results.Redirect(redirectUri.ToString());
         } catch (Exception ex) {
             logger.LogError(ex, "OAuth callback token exchange error");
-            return Results.Problem($"Token exchange error: {ex.Message}");
+            return Results.Problem(detail: "Token exchange failed. Please try signing in again.", statusCode: 500);
         }
     }
 

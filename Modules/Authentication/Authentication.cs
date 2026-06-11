@@ -19,6 +19,7 @@ internal class AuthenticationModuleRegistrar : IModuleRegistrar {
         // Keys persisted to ./data/dp-keys so they survive restarts.
         var keyDir = Environment.GetEnvironmentVariable("HALOPSA_DPKEY_DIR") ?? "./data/dp-keys";
         Directory.CreateDirectory(keyDir);
+        UnixFilePermissions.TrySetDirectoryUserOnly(keyDir);
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(keyDir));
 

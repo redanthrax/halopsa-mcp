@@ -103,7 +103,7 @@ Use the same image/binary for all three; only environment variables and surround
 
 4. Restart desktop MCP client.
 
-5. In MCP client, ask it to run **`halopsa_setup`** (or open `http://localhost:3000/` in a browser). If not signed in, open the **login URL** it returns, complete HaloPSA sign-in, then retry your request — no MCP client restart needed.
+5. On first connect, if you are not signed in, the MCP server **opens the login page in your browser** and sends MCP client **server instructions** to prompt sign-in. Complete HaloPSA sign-in, then retry in MCP client — no restart needed. Set `HALOPSA_AUTO_OPEN_LOGIN=0` to disable auto-open.
 
 ## 2. Docker (Self-hosted HTTP)
 

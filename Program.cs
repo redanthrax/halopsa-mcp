@@ -103,9 +103,12 @@ if (isHttpMode) {
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
     });
 
+    McpRuntime.HostMode = McpHostMode.Http;
+
     builder.Services.AddMcpServer()
-        .WithHttpTransport()
+        .WithHttpTransport(McpServerSetup.ConfigureHttpSessionInstructions)
         .WithTools<HaloPsaMcpTools>();
+    builder.Services.AddMcpSessionInstructions();
 
     var app = builder.Build();
 
@@ -173,9 +176,13 @@ if (isHttpMode) {
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
     });
 
+    McpRuntime.HostMode = McpHostMode.DesktopStdio;
+
     builder.Services.AddMcpServer()
         .WithStdioServerTransport()
         .WithTools<HaloPsaMcpTools>();
+    builder.Services.AddMcpSessionInstructions();
+    builder.Services.AddHostedService<DesktopLoginBootstrapService>();
 
     var app = builder.Build();
 

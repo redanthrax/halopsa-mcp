@@ -38,7 +38,11 @@ When reviewing or reporting issues, pay particular attention to:
 
 ## Safe deployment reminders
 
-- Set `MCP_DCR_INITIAL_ACCESS_TOKEN` for any internet-exposed HTTP deployment
-- Use `halopsa.tokenStore.backend=redis` when `replicaCount > 1`; keep Redis on a private network with TLS
+- **HTTP mode (`--http`) requires `MCP_DCR_INITIAL_ACCESS_TOKEN`** — startup fails without it unless `MCP_ALLOW_OPEN_DCR=1` (local Docker only)
+- desktop MCP client stdio binds OAuth to **127.0.0.1** by default; set `HTTP_BIND_ALL=1` only if you understand the LAN exposure risk
+- Set `TRUSTED_PROXY_CIDRS` behind ingress (defaults to RFC1918 private ranges); use `none` to disable forwarded headers
+- Use `halopsa.tokenStore.backend=redis` when `replicaCount > 1`; keep Redis on a private network with TLS; store Redis credentials in Kubernetes Secrets
+- Helm chart enables **NetworkPolicy** by default; provide `dcrInitialAccessToken` via chart Secret or `existingSecret`
 - Pin Docker images to a SemVer tag or digest, not `latest`
 - Rotate DataProtection keys and token stores according to your org policy
+- HaloPSA upstream error bodies and full SQL are **not** written to Information-level logs or returned to clients

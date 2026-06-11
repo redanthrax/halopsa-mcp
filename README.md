@@ -134,7 +134,7 @@ If you expose this to the public internet, also set `MCP_DCR_INITIAL_ACCESS_TOKE
 
 ## 3. AKS / Kubernetes (Helm)
 
-The Helm chart at `helm/halopsa-mcp/` ships with hardened defaults: read-only root filesystem, `seccompProfile: RuntimeDefault`, no auto-mounted SA token, optional NetworkPolicy + PodDisruptionBudget, optional `MCP_DCR_INITIAL_ACCESS_TOKEN` from a generated Secret.
+The Helm chart at `helm/halopsa-mcp/` ships with hardened defaults: read-only root filesystem, `seccompProfile: RuntimeDefault`, no auto-mounted SA token, **NetworkPolicy enabled by default**, PodDisruptionBudget, and a generated Secret for `dcrInitialAccessToken` / client secret / Redis connection.
 
 ```bash
 helm upgrade --install halopsa-mcp helm/halopsa-mcp/ \
@@ -210,7 +210,10 @@ Production checklist:
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
 | `HALOPSA_PUBLIC_URL` | `${AUTH_BASE_URL}` | Public base URL for login links (defaults to `AUTH_BASE_URL`) |
 | `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
-| `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | When set, `/register` requires `Authorization: Bearer <token>`. **Set this for any internet-exposed deployment.** |
+| `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | **Required for `--http`/Docker/K8s** (startup fails without it). Gates `/register` (DCR). |
+| `MCP_ALLOW_OPEN_DCR` | _(unset)_ | `1` = allow open `/register` without IAT — **local Docker only** |
+| `HTTP_BIND_ALL` | _(unset)_ | `1` = bind stdio OAuth to all interfaces (default: localhost only) |
+| `TRUSTED_PROXY_CIDRS` | RFC1918 private | Comma-separated CIDRs for `X-Forwarded-*`; `none` disables |
 | `MCP_READY_VERBOSE` | `0` | `1` exposes detailed `/ready` JSON for trusted scrapers |
 | `LOG_FORMAT` | `json` | `text` for human-readable console |
 | `HALOPSA_SCHEMA_PATH` | `./schema` | Override schema catalog dir |

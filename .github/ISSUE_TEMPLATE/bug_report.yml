@@ -1,0 +1,75 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. For **security vulnerabilities**, see [SECURITY.md](https://github.com/redanthrax/halopsa-mcp/blob/master/SECURITY.md) — do not file a public issue.
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment mode
+      options:
+        - desktop MCP client (stdio)
+        - Docker / docker-compose
+        - Kubernetes / Helm
+        - Local `dotnet run -- --http`
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Docker image tag, git commit SHA, or `dotnet run` from source
+      placeholder: e.g. v1.0.0 or master @ abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure ...
+        2. Call tool `halopsa_...` with ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error messages. Redact tokens, client secrets, and tenant URLs if needed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Set `LOG_FORMAT=text` for readable console output. Redact secrets.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this report
+          required: true
+        - label: I redacted secrets from the description above
+          required: true

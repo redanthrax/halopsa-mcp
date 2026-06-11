@@ -152,7 +152,7 @@ internal static class HaloPsaMcpConstants
             authenticated = false,
             message = "Authentication required.",
             login_url = url,
-            next_step = "Ask the user to open login_url in a browser, sign in to HaloPSA, then retry. Or call halopsa_setup for desktop MCP client instructions."
+            next_step = "Ask the user to open login_url in a browser, sign in to HaloPSA, then retry. Or call halopsa_setup for desktop stdio setup instructions."
         }, IndentedJsonOptions);
     }
 

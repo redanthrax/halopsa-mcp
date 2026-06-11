@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing. This project bridges [HaloPSA](https://halopsa.com/) to the [Model Context Protocol](https://modelcontextprotocol.io/) so MCP clients can query and manage PSA data safely.
 
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+
 ## Getting started
 
 ### Prerequisites
@@ -40,7 +42,7 @@ dotnet run -- --http
 | `Modules/Mcp/` | MCP tool definitions (`[McpServerTool]`) |
 | `Modules/Common/` | Shared config, middleware |
 | `tests/HaloPsaMcp.Tests/` | Unit tests (xUnit) |
-| `schema/` | Offline reporting DB catalog for MCP client schema tools |
+| `schema/` | Offline reporting DB catalog for schema discovery tools |
 | `helm/halopsa-mcp/` | Kubernetes deployment chart |
 
 Handlers live in `Modules/HaloPsa/Handlers/` and are invoked by Wolverine from MCP tools. Prefer adding business logic in handlers rather than in the tool layer.

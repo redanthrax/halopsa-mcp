@@ -18,6 +18,7 @@ data/
 *.json
 !appsettings.json
 !global.json
+!packages.lock.json
 !*.csproj
 !schema/catalog.json
 *.key

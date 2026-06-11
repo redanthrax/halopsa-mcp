@@ -110,6 +110,7 @@ _ReSharper*/
 data/
 *.json
 !appsettings.json
+!global.json
 !*.csproj
 !tsconfig.json
 !package.json

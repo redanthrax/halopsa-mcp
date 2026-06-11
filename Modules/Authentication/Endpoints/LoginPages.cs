@@ -9,7 +9,7 @@ internal static class LoginPages {
 
     internal static IResult DesktopStatus(AppConfig config, bool authenticated, string loginUrl) {
         var status = authenticated
-            ? """<p class="ok">Signed in — return to desktop MCP client and retry your request.</p>"""
+            ? """<p class="ok">Signed in — return to your MCP client and retry your request.</p>"""
             : $"""<p class="warn">Not signed in yet.</p><p><a class="btn" href="{WebUtility.HtmlEncode(loginUrl)}">Sign in to HaloPSA</a></p>""";
         var html = string.Format(
             CultureInfo.InvariantCulture,
@@ -36,7 +36,7 @@ internal static class LoginPages {
         <body>
           <h1>Signed in to HaloPSA</h1>
           <p class="ok">Authentication succeeded.</p>
-          <p>You can close this tab and return to <strong>desktop MCP client</strong>. Retry your HaloPSA request — no restart needed.</p>
+          <p>You can close this tab and return to your <strong>MCP client</strong>. Retry your HaloPSA request — no restart needed.</p>
         </body>
         </html>
         """;
@@ -58,7 +58,7 @@ internal static class LoginPages {
           </style>
         </head>
         <body>
-          <h1>HaloPSA MCP (desktop MCP client)</h1>
+          <h1>HaloPSA MCP (desktop stdio)</h1>
           <p class="muted">Tenant: {1}</p>
           {2}
           <p class="muted">Login URL: <code>{0}</code></p>

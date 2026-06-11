@@ -235,7 +235,7 @@ internal partial class HaloPsaMcpTools {
     }
 
     [McpServerTool]
-    [Description("desktop MCP client setup helper. Returns whether .env and OAuth are configured, if a HaloPSA session exists, the login URL, and next steps for the user. Call this when the user is installing or troubleshooting local MCP setup.")]
+    [Description("Desktop stdio setup helper. Returns whether .env and OAuth are configured, if a HaloPSA session exists, the login URL, and next steps for the user. Call this when the user is installing or troubleshooting local MCP setup.")]
     public static string HalopsaSetup(AppConfig appConfig, ITokenStore tokenStore) {
         var status = DesktopSetupEvaluator.Evaluate(appConfig, tokenStore);
         return JsonSerializer.Serialize(new {

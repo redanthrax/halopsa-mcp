@@ -39,7 +39,7 @@ When reviewing or reporting issues, pay particular attention to:
 ## Safe deployment reminders
 
 - **HTTP mode (`--http`) requires `MCP_DCR_INITIAL_ACCESS_TOKEN`** — startup fails without it unless `MCP_ALLOW_OPEN_DCR=1` (local Docker only)
-- desktop MCP client stdio binds OAuth to **127.0.0.1** by default; set `HTTP_BIND_ALL=1` only if you understand the LAN exposure risk
+- Desktop stdio binds OAuth to **127.0.0.1** by default; set `HTTP_BIND_ALL=1` only if you understand the LAN exposure risk
 - Set `TRUSTED_PROXY_CIDRS` behind ingress (defaults to RFC1918 private ranges); use `none` to disable forwarded headers
 - Use `halopsa.tokenStore.backend=redis` when `replicaCount > 1`; keep Redis on a private network with TLS; store Redis credentials in Kubernetes Secrets
 - Helm chart enables **NetworkPolicy** by default; provide `dcrInitialAccessToken` via chart Secret or `existingSecret`
@@ -52,4 +52,4 @@ When reviewing or reporting issues, pay particular attention to:
 - PR CI runs **Trivy** on a built Docker image; releases no longer publish a `latest` tag
 - GitHub Actions are **pinned to commit SHAs**; Dependabot bumps the `# vN` comment
 - Helm supports **`image.digest`** (`repository@sha256:...`) for immutable AKS deploys
-- desktop MCP client stdio creates `logs/` with **0700** permissions
+- Desktop stdio creates `logs/` with **0700** permissions

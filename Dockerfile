@@ -4,12 +4,11 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:c0790639332692a0d56cdd81ed581cfd24
 
 WORKDIR /app
 
-# Copy project files
-COPY HaloPsaMcp.csproj ./
-COPY Directory.Build.props ./
+# Copy project files (lockfile keeps Docker builds aligned with CI)
+COPY HaloPsaMcp.csproj Directory.Build.props packages.lock.json ./
 
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore --locked-mode
 
 # Copy source code
 COPY . ./
@@ -20,6 +19,9 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 # Runtime stage — alpine cuts ~100 MB vs the default debian image
 # Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f03685b2735e0d3d25d6c60672e74b21bb6334f1402f71bae2d2cf02307163cd
+
+# Apply Alpine security updates (base image may lag behind apk index).
+RUN apk upgrade --no-cache
 
 # Non-root user (alpine has addgroup/adduser, not groupadd/useradd)
 RUN addgroup -g 1001 -S dotnet && adduser -S -u 1001 -G dotnet dotnet

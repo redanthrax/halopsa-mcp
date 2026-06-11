@@ -37,9 +37,9 @@ internal static class DesktopSetupEvaluator {
             ? null
             : $"Ask the user to open {loginUrl} in a browser, sign in to HaloPSA, then retry.";
 
-        var claudeHint =
-            "desktop MCP client: put HALOPSA_* vars in .env (not mcp host config env block when using WSL). "
-            + "Restart desktop MCP client after changing .env or the MCP binary.";
+        var desktopHint =
+            "Desktop stdio: put HALOPSA_* vars in .env (not the MCP host config env block when using WSL). "
+            + "Restart the MCP host after changing .env or the MCP binary.";
 
         return new SetupStatus(
             Mode: "desktop_stdio",
@@ -48,6 +48,6 @@ internal static class DesktopSetupEvaluator {
             LoginUrl: loginUrl,
             NextStep: nextStep,
             Checks: checks,
-            DesktopSetupHint: claudeHint);
+            DesktopSetupHint: desktopHint);
     }
 }

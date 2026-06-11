@@ -13,7 +13,7 @@ body:
     attributes:
       label: Deployment mode
       options:
-        - desktop MCP client (stdio)
+        - Desktop stdio (local MCP host)
         - Docker / docker-compose
         - Kubernetes / Helm
         - Local `dotnet run -- --http`
@@ -26,7 +26,7 @@ body:
     attributes:
       label: Version
       description: Docker image tag, git commit SHA, or `dotnet run` from source
-      placeholder: e.g. v1.0.0 or master @ abc1234
+      placeholder: e.g. v1.0.23 or master @ abc1234
     validations:
       required: true
 

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 namespace HaloPsaMcp.Modules.Mcp;
 
 /// <summary>
-/// desktop MCP client / stdio: when no HaloPSA session exists, open the login page once Kestrel is up.
+/// Desktop stdio mode: when no HaloPSA session exists, open the login page once Kestrel is up.
 /// </summary>
 internal sealed class DesktopLoginBootstrapService(
     AppConfig config,

@@ -209,7 +209,7 @@ if (isHttpMode) {
     MapHealthEndpoints(app, startedAt);
 
     var loginUrl = HaloPsaMcpConstants.GetLoginUrl(appConfig);
-    Log.Information("HaloPSA MCP ready (desktop MCP client / stdio)");
+    Log.Information("HaloPSA MCP ready (desktop stdio)");
     Log.Information("Sign in: {LoginUrl}", loginUrl);
     Log.Information("Status page: {BaseUrl}/", AppConfigRuntime.ResolvePublicBaseUrl(appConfig));
 

@@ -58,6 +58,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trivy image scan
+        id: trivy
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: halopsa-mcp:ci-scan
@@ -65,3 +67,26 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
+          format: table
+          output: trivy-results.txt
+
+      - name: Publish Trivy results to summary
+        if: always()
+        run: |
+          {
+            echo "### Docker image scan (Trivy)"
+            echo ""
+            if [[ -s trivy-results.txt ]]; then
+              echo '```'
+              cat trivy-results.txt
+              echo '```'
+            else
+              echo "_No results file — see job logs._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on vulnerabilities
+        if: steps.trivy.outcome == 'failure'
+        run: |
+          echo "::error::Trivy found CRITICAL or HIGH vulnerabilities (see job summary)"
+          exit 1

@@ -1,11 +1,18 @@
 # HaloPSA MCP Server
 
-MCP server for HaloPSA — query tickets, agents, clients, and reporting data via SQL or REST APIs. Full read/write support for tickets, actions, and timesheets.
+[![CI](https://github.com/redanthrax/halopsa-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/redanthrax/halopsa-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+MCP server for [HaloPSA](https://halopsa.com/) — query tickets, agents, clients, and reporting data via SQL or REST APIs. Full read/write support for tickets, actions, and timesheets.
+
+> **Disclaimer:** This is an independent open-source project. It is not affiliated with, endorsed by, or supported by HaloPSA or NinjaOne.
+
+See [CHANGELOG.md](CHANGELOG.md) for release history. Docker images are published as semver tags on [Docker Hub](https://hub.docker.com/r/redanthrax/halopsa-mcp) (`redanthrax/halopsa-mcp:<version>` — no `latest` tag).
 
 ## Features
 
 - OAuth 2.1 authentication with PKCE
-- Dual-mode: stdio (desktop MCP client) + Streamable HTTP (remote MCP client / production)
+- Dual-mode: stdio (desktop MCP host) + Streamable HTTP (remote MCP clients / production)
 - Stdio mode includes a background OAuth server — authenticate without restarting
 - SQL query tool for efficient counts, aggregation, and date-based filtering
 - Live schema with status IDs, agent IDs, and query examples
@@ -46,13 +53,13 @@ Use this if your HaloPSA instance requires confidential clients or you need mach
 
 | Mode | Audience | Transport | Auth surface |
 |------|----------|-----------|--------------|
-| **Local / Stdio** | desktop MCP client on your laptop | stdin/stdout + background OAuth on `:3000` | Single user, single HaloPSA tenant |
+| **Local / Stdio** | Desktop MCP host on your laptop | stdin/stdout + background OAuth on `:3000` | Single user, single HaloPSA tenant |
 | **Docker** | Self-hosted, single host | Streamable HTTP on `:3000` | DCR optional; bind to localhost or trusted LAN |
-| **AKS / Kubernetes** | Internet-exposed multi-user MCP server (remote MCP client) | Streamable HTTP behind ingress + TLS | DCR gated, NetworkPolicy, HSTS, read-only rootfs |
+| **AKS / Kubernetes** | Internet-exposed multi-user MCP server | Streamable HTTP behind ingress + TLS | DCR gated, NetworkPolicy, HSTS, read-only rootfs |
 
 Use the same image/binary for all three; only environment variables and surrounding infra change.
 
-## 1. Local Dev (desktop MCP client / Stdio)
+## 1. Local Dev (Desktop Stdio)
 
 1. Create `.env` (copy `.env.example`):
    ```bash
@@ -69,9 +76,9 @@ Use the same image/binary for all three; only environment variables and surround
    dotnet build
    ```
 
-3. Configure desktop MCP client (`%APPDATA%\MCP client\mcp host config`):
+3. Configure your MCP host's stdio entry (example config shape):
 
-   > The MCP host's `env` block does not pass through `wsl.exe`. Put env vars in `.env`.
+   > The host's `env` block does not pass through `wsl.exe`. Put env vars in `.env`.
 
    **WSL (recommended):**
    ```json
@@ -101,9 +108,9 @@ Use the same image/binary for all three; only environment variables and surround
    }
    ```
 
-4. Restart desktop MCP client.
+4. Restart your MCP host.
 
-5. On first connect, if you are not signed in, the MCP server **opens the login page in your browser** and sends MCP client **server instructions** to prompt sign-in. Complete HaloPSA sign-in, then retry in MCP client — no restart needed. Set `HALOPSA_AUTO_OPEN_LOGIN=0` to disable auto-open.
+5. On first connect, if you are not signed in, the MCP server **opens the login page in your browser** and sends **server instructions** to the host to prompt sign-in. Complete HaloPSA sign-in, then retry in the host — no restart needed. Set `HALOPSA_AUTO_OPEN_LOGIN=0` to disable auto-open.
 
 ## 2. Docker (Self-hosted HTTP)
 
@@ -127,8 +134,10 @@ docker run -d \
   -e HALOPSA_CLIENT_ID=your-client-id \
   -e AUTH_BASE_URL=https://your-domain.com \
   -e HALOPSA_DPKEY_DIR=/app/data/dp-keys \
-  redanthrax/halopsa-mcp:0.1.0
+  redanthrax/halopsa-mcp:1.0.23
 ```
+
+> Pin to a specific semver tag from [GitHub Releases](https://github.com/redanthrax/halopsa-mcp/releases) or use `image.digest` in Kubernetes.
 
 If you expose this to the public internet, also set `MCP_DCR_INITIAL_ACCESS_TOKEN` so `/register` is gated, and front it with a TLS-terminating reverse proxy (Caddy, Traefik, nginx).
 
@@ -183,7 +192,7 @@ Production checklist:
 | `serviceAccount.automountServiceAccountToken` | `false` | App does not call the K8s API. |
 | `securityContext.readOnlyRootFilesystem` | `true` | Writable paths are PVC + tmpfs `/tmp`. |
 | `podSecurityContext.seccompProfile.type` | `RuntimeDefault` | |
-| `networkPolicy.enabled` | `false` | Set true; defaults allow ingress-nginx → pod and egress to DNS / `:443` / IMDS only. |
+| `networkPolicy.enabled` | `true` | Restricts ingress to the release namespace and egress to DNS / `:443` / IMDS. Set `false` only for constrained clusters. |
 | `podDisruptionBudget.enabled` | `false` | Only useful with replicaCount > 1. |
 | `dcrInitialAccessToken` | `""` | When set, gates `/register`. |
 | `halopsa.dpKeyDir` | `/app/data/dp-keys` | DataProtection keys directory. |
@@ -223,8 +232,8 @@ Production checklist:
 
 | Mode | Use Case | Command | Transport |
 |------|----------|---------|-----------|
-| **Stdio** (default) | desktop MCP client local | `dotnet run` | stdin/stdout + background HTTP on port 3000 for OAuth |
-| **HTTP** | remote MCP client / production | `dotnet run -- --http` | Streamable HTTP on port 3000 |
+| **Stdio** (default) | Desktop MCP host (local) | `dotnet run` | stdin/stdout + background HTTP on port 3000 for OAuth |
+| **HTTP** | Remote MCP clients / production | `dotnet run -- --http` | Streamable HTTP on port 3000 |
 
 ## Security Posture
 
@@ -251,7 +260,7 @@ Production checklist:
 |------|-------------|
 | `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. All datetimes are UTC — convert local times before querying. |
 | `halopsa_get_schema` | Returns table/column names, live status IDs, agent IDs, and example queries. Call before writing SQL. |
-| `halopsa_setup` | **desktop MCP client.** Check local setup, session status, login URL, and troubleshooting steps. Call when installing or if login fails. |
+| `halopsa_setup` | **Desktop stdio.** Check local setup, session status, login URL, and troubleshooting steps. Call when installing or if login fails. |
 | `halopsa_auth_status` | Check current authentication status. Call first for any HaloPSA request. |
 | `halopsa_whoami` | Decode the access token and return granted scopes plus identity claims (`agent_id`, `role`, `client_id`, etc). Useful right after login. |
 | `halopsa_capabilities` | Probe HaloPSA endpoints to discover which permissions/scopes the active token actually has. Returns an allow/deny map per capability. |
@@ -345,9 +354,9 @@ The schema folder is auto-copied next to the binary at build/publish. Override t
 ## Troubleshooting
 
 **"NOT AUTHENTICATED"**:
-1. For desktop MCP client: run `halopsa_setup` or open `http://localhost:3000/` — use the login URL in your browser
-2. After signing in, retry in MCP client (no restart required)
-3. For remote MCP client: re-add the integration or start a new chat
+1. For desktop stdio: run `halopsa_setup` or open `http://localhost:3000/` — use the login URL in your browser
+2. After signing in, retry in your MCP host (no restart required)
+3. For remote HTTP clients: re-add the integration or start a new session
 4. If port 3000 is in use, check MCP logs for the actual login URL (ephemeral port fallback)
 
 **Query returns 0 rows**:
@@ -379,7 +388,7 @@ Use `halopsa_get_schema` to see example queries for joining these tables.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](SECURITY.md).
 
 ## License
 

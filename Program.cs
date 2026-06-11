@@ -158,10 +158,11 @@ if (isHttpMode) {
 
     var actualHttpPort = ProbePort(appConfig.HttpPort);
     if (actualHttpPort != appConfig.HttpPort) {
+        AppConfigRuntime.EffectivePublicBaseUrl = $"http://localhost:{actualHttpPort}";
+        AppConfigRuntime.PortFallbackActive = true;
         Log.Warning(
-            "Port {Port} is in use; falling back to ephemeral port {Fallback}. " +
-            "OAuth login URL will not match AUTH_BASE_URL — fix the port conflict and restart for re-auth to work.",
-            appConfig.HttpPort, actualHttpPort);
+            "Port {Port} is in use; OAuth server bound to {Fallback}. Login URL updated for this session — free port {Port} and restart to use AUTH_BASE_URL again.",
+            appConfig.HttpPort, AppConfigRuntime.EffectivePublicBaseUrl, appConfig.HttpPort);
     }
 
     builder.WebHost.ConfigureKestrel(options => {
@@ -181,7 +182,10 @@ if (isHttpMode) {
     app.MapOAuthEndpoints();
     MapHealthEndpoints(app, startedAt);
 
-    Log.Information("OAuth server available at http://localhost:{Port}/login for re-authentication", actualHttpPort);
+    var loginUrl = HaloPsaMcpConstants.GetLoginUrl(appConfig);
+    Log.Information("HaloPSA MCP ready (desktop MCP client / stdio)");
+    Log.Information("Sign in: {LoginUrl}", loginUrl);
+    Log.Information("Status page: {BaseUrl}/", AppConfigRuntime.ResolvePublicBaseUrl(appConfig));
 
     await app.RunAsync().ConfigureAwait(false);
 }

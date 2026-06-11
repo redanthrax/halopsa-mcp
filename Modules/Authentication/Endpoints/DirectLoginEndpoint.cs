@@ -15,7 +15,8 @@ internal static class DirectLoginEndpoint
     public static void MapDirectLogin(this IEndpointRouteBuilder app)
     {
         app.MapGet("/login", DirectLogin);
-        app.MapGet("/success", () => Results.Ok("Authentication successful! You can close this window."));
+        app.MapGet("/success", LoginPages.Success);
+        app.MapDesktopStatus();
     }
 
     private static IResult DirectLogin(AppConfig config, HaloPsaConfig haloPsaConfig)

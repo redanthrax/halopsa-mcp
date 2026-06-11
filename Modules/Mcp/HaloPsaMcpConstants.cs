@@ -55,10 +55,8 @@ internal static class HaloPsaMcpConstants
         "id", "name", "colour", "timetaken", "isdefault"
     ];
 
-    internal static string GetLoginUrl(AppConfig appConfig)
-    {
-        return $"{appConfig.PublicBaseUrl}/login";
-    }
+    internal static string GetLoginUrl(AppConfig appConfig) =>
+        $"{AppConfigRuntime.ResolvePublicBaseUrl(appConfig)}/login";
 
     private static readonly Regex InvalidColumnRegex = new(
         @"Invalid column name '([^']+)'",
@@ -148,22 +146,21 @@ internal static class HaloPsaMcpConstants
         return false;
     }
 
-    internal static string AuthRequiredMessage =
-        "Authentication required. Please call halopsa_auth_status for login instructions.";
-
-    internal static string AuthErrorMessage(AppConfig appConfig)
-    {
+    internal static string AuthRequiredMessage(AppConfig appConfig) {
         var url = GetLoginUrl(appConfig);
-        // For localhost (dev), use plain text to avoid suppression; for public URLs, use markdown link.
-        if (url.StartsWith("http://localhost") || url.StartsWith("https://localhost"))
-        {
-            return $"HaloPSA access needed. Open {url} in your browser to sign in.";
-        }
-        else
-        {
-            return $"HaloPSA access needed. [Sign in here]({url})";
-        }
+        return JsonSerializer.Serialize(new {
+            authenticated = false,
+            message = "Authentication required.",
+            login_url = url,
+            next_step = "Ask the user to open login_url in a browser, sign in to HaloPSA, then retry. Or call halopsa_setup for desktop MCP client instructions."
+        }, IndentedJsonOptions);
     }
+
+    internal static string FormatUnauthenticatedStatus(AppConfig appConfig) =>
+        AuthRequiredMessage(appConfig);
+
+    internal static string AuthErrorMessage(AppConfig appConfig) =>
+        FormatUnauthenticatedStatus(appConfig);
 
     private const string AuthNotice =
         "If a tool result includes login_url with authenticated=false, surface that URL to the user as the sign-in link.";

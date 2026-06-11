@@ -32,7 +32,7 @@ internal partial class HaloPsaMcpTools {
             var result = await bus.InvokeAsync<TResult>(query).ConfigureAwait(false);
             return JsonSerializer.Serialize(select(result), HaloPsaMcpConstants.IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 

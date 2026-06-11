@@ -147,7 +147,7 @@ internal partial class HaloPsaMcpTools {
         try {
             var result = await bus.InvokeAsync<ExecuteQueryResult>(new ExecuteQueryQuery(sql), cts.Token).ConfigureAwait(false);
             if (result == null) {
-                return HaloPsaMcpConstants.AuthRequiredMessage;
+                return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
             }
 
             var jsonResponse = JsonSerializer.Serialize(result.Rows, IndentedJsonOptions);
@@ -167,7 +167,7 @@ internal partial class HaloPsaMcpTools {
             string rowCountInfo = result.Count == 1 ? "1 row" : $"{result.Count} rows";
             return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryResultTemplate, rowCountInfo, sizeWarning, jsonResponse);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         } catch (TaskCanceledException) {
             return HaloPsaMcpConstants.QueryTimeoutMessage;
         } catch (Exception ex) {
@@ -186,7 +186,7 @@ internal partial class HaloPsaMcpTools {
         AppConfig appConfig) {
         var client = clientFactory.CreateClient(GetContext(httpContextAccessor));
         if (client == null) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
         var statusList = new List<StatusInfo>();
         var agentList = new List<AgentInfo>();
@@ -232,6 +232,21 @@ internal partial class HaloPsaMcpTools {
             agentListText,
             tablesText,
             examplesText);
+    }
+
+    [McpServerTool]
+    [Description("desktop MCP client setup helper. Returns whether .env and OAuth are configured, if a HaloPSA session exists, the login URL, and next steps for the user. Call this when the user is installing or troubleshooting local MCP setup.")]
+    public static string HalopsaSetup(AppConfig appConfig, ITokenStore tokenStore) {
+        var status = DesktopSetupEvaluator.Evaluate(appConfig, tokenStore);
+        return JsonSerializer.Serialize(new {
+            mode = status.Mode,
+            ready_for_tools = status.ReadyForTools,
+            authenticated = status.Authenticated,
+            login_url = status.LoginUrl,
+            next_step = status.NextStep,
+            checks = status.Checks.Select(c => new { id = c.Id, ok = c.Ok, detail = c.Detail }),
+            desktop_setup_hint = status.DesktopSetupHint
+        }, IndentedJsonOptions);
     }
 
     [McpServerTool]
@@ -319,7 +334,7 @@ internal partial class HaloPsaMcpTools {
         }
 
         if (string.IsNullOrEmpty(haloAccess)) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
 
         var claims = JwtClaimsReader.TryReadClaims(haloAccess);
@@ -363,7 +378,7 @@ internal partial class HaloPsaMcpTools {
         AppConfig appConfig) {
         var client = clientFactory.CreateClient(GetContext(httpContextAccessor));
         if (client == null) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
 
         var probes = new (string Label, string Endpoint)[] {
@@ -443,7 +458,7 @@ internal partial class HaloPsaMcpTools {
                     string.IsNullOrEmpty(search) ? null : search)).ConfigureAwait(false);
             return JsonSerializer.Serialize(result.Data, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -476,7 +491,7 @@ internal partial class HaloPsaMcpTools {
 
             return $"{jsonResponse}{sizeWarning}";
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -491,7 +506,7 @@ internal partial class HaloPsaMcpTools {
             var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.TicketDetailFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -522,7 +537,7 @@ internal partial class HaloPsaMcpTools {
             var result = await bus.InvokeAsync<CreateTicketResult>(new CreateTicketQuery(request)).ConfigureAwait(false);
             return FormatCreateTicketResponse(result.Data);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -557,7 +572,7 @@ internal partial class HaloPsaMcpTools {
             var result = await bus.InvokeAsync<UpdateTicketResult>(new UpdateTicketQuery(request)).ConfigureAwait(false);
             return FormatUpdateTicketResponse(result.Data, id);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -584,7 +599,7 @@ internal partial class HaloPsaMcpTools {
             var result = await bus.InvokeAsync<AddActionResult>(new AddActionQuery(request)).ConfigureAwait(false);
             return FormatAddActionResponse(result.Data, ticketId);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -598,7 +613,7 @@ internal partial class HaloPsaMcpTools {
             var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.OutcomeSummaryFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -623,7 +638,7 @@ internal partial class HaloPsaMcpTools {
 
             return $"{jsonResponse}{sizeWarning}";
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -640,7 +655,7 @@ internal partial class HaloPsaMcpTools {
                 new GetTimesheetQuery(id, agentId != 0 ? agentId : null, string.IsNullOrEmpty(date) ? null : date)).ConfigureAwait(false);
             return JsonSerializer.Serialize(result.Data, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -678,7 +693,7 @@ internal partial class HaloPsaMcpTools {
                         : $"Timesheet #{id} updated"
             }, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -696,7 +711,7 @@ internal partial class HaloPsaMcpTools {
             var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.TimesheetEventSummaryFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -739,7 +754,7 @@ internal partial class HaloPsaMcpTools {
                     : $"Timesheet event #{id} updated"
             }, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -758,7 +773,7 @@ internal partial class HaloPsaMcpTools {
                 new CreateTimesheetQuery(agentId, date, startTime, endTime, utcOffset)).ConfigureAwait(false);
             return JsonSerializer.Serialize(result.Data, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 
@@ -776,7 +791,7 @@ internal partial class HaloPsaMcpTools {
                 message = $"Timesheet event #{result.Id} deleted"
             }, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
-            return HaloPsaMcpConstants.AuthRequiredMessage;
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         }
     }
 }

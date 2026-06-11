@@ -101,7 +101,9 @@ Use the same image/binary for all three; only environment variables and surround
    }
    ```
 
-4. Restart desktop MCP client. The first call prints a login URL; open it in a browser.
+4. Restart desktop MCP client.
+
+5. In MCP client, ask it to run **`halopsa_setup`** (or open `http://localhost:3000/` in a browser). If not signed in, open the **login URL** it returns, complete HaloPSA sign-in, then retry your request — no MCP client restart needed.
 
 ## 2. Docker (Self-hosted HTTP)
 
@@ -245,6 +247,7 @@ Production checklist:
 |------|-------------|
 | `halopsa_query` | **Primary tool.** SQL SELECT against reporting database. Best for counts, aggregation, date filtering, and satisfaction survey analysis. All datetimes are UTC — convert local times before querying. |
 | `halopsa_get_schema` | Returns table/column names, live status IDs, agent IDs, and example queries. Call before writing SQL. |
+| `halopsa_setup` | **desktop MCP client.** Check local setup, session status, login URL, and troubleshooting steps. Call when installing or if login fails. |
 | `halopsa_auth_status` | Check current authentication status. Call first for any HaloPSA request. |
 | `halopsa_whoami` | Decode the access token and return granted scopes plus identity claims (`agent_id`, `role`, `client_id`, etc). Useful right after login. |
 | `halopsa_capabilities` | Probe HaloPSA endpoints to discover which permissions/scopes the active token actually has. Returns an allow/deny map per capability. |
@@ -338,8 +341,10 @@ The schema folder is auto-copied next to the binary at build/publish. Override t
 ## Troubleshooting
 
 **"NOT AUTHENTICATED"**:
-1. For remote MCP client: re-add the integration or start a new chat
-2. For desktop MCP client: MCP client will provide a login URL — open it in your browser to authenticate
+1. For desktop MCP client: run `halopsa_setup` or open `http://localhost:3000/` — use the login URL in your browser
+2. After signing in, retry in MCP client (no restart required)
+3. For remote MCP client: re-add the integration or start a new chat
+4. If port 3000 is in use, check MCP logs for the actual login URL (ephemeral port fallback)
 
 **Query returns 0 rows**:
 1. Call `halopsa_get_schema` first to verify table/column names

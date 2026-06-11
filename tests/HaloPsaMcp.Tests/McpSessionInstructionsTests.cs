@@ -88,6 +88,9 @@ public class McpSessionInstructionsTests {
             string mcpAccessToken, string newHaloAccess, string newHaloRefresh, long newExpiresAt) =>
             throw new NotImplementedException();
 
+        public Task<bool> InvalidateSessionAsync(string mcpToken) =>
+            Task.FromResult(false);
+
         public int PruneExpired() => 0;
         public ValueTask<bool> CheckHealthAsync(CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(true);

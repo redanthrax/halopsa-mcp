@@ -23,6 +23,7 @@ internal static class TokenStoreRegistration {
             var redis = ConnectionMultiplexer.Connect(appConfig.HaloPsa.RedisConnection);
             return new RedisTokenStore(
                 redis,
+                sp.GetRequiredService<IDataProtectionProvider>(),
                 sp.GetRequiredService<ILogger<RedisTokenStore>>());
         }
 

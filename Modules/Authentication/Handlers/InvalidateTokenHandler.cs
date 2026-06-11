@@ -10,10 +10,10 @@ public static class InvalidateTokenHandler {
     /// <summary>
     /// Handle InvalidateTokenCommand - removes token from validation cache
     /// </summary>
-    public static Task<InvalidateTokenResult> Handle(
+    public static async Task<InvalidateTokenResult> Handle(
         InvalidateTokenCommand command,
         McpAuthenticationService authService) {
-        authService.InvalidateToken(command.Token);
-        return Task.FromResult(new InvalidateTokenResult(true));
+        var removed = await authService.InvalidateTokenAsync(command.Token).ConfigureAwait(false);
+        return new InvalidateTokenResult(removed);
     }
 }

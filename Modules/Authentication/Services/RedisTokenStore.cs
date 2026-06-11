@@ -1,12 +1,12 @@
-using System.Text.Json;
 using HaloPsaMcp.Modules.Authentication.Models;
+using Microsoft.AspNetCore.DataProtection;
 using StackExchange.Redis;
 
 namespace HaloPsaMcp.Modules.Authentication.Services;
 
 /// <summary>
 /// Redis-backed <see cref="ITokenStore"/> for multi-replica HTTP/Kubernetes deployments.
-/// Session payloads are stored as JSON on a private Redis instance (TLS + network policy recommended).
+/// Session payloads are encrypted with DataProtection before write (TLS + network policy still required).
 /// </summary>
 public sealed class RedisTokenStore : ITokenStore {
     private const int MaxSessions = 5000;
@@ -15,18 +15,21 @@ public sealed class RedisTokenStore : ITokenStore {
     private const string LatestSessionKey = "halopsa:mcp:latest";
     private const string SessionIndexKey = "halopsa:mcp:session-index";
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
-
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisTokenStore> _logger;
     private readonly IDatabase _db;
+    private readonly TokenEntryProtector _protector;
 
     public string Backend => "redis";
 
-    public RedisTokenStore(IConnectionMultiplexer redis, ILogger<RedisTokenStore> logger) {
+    public RedisTokenStore(
+        IConnectionMultiplexer redis,
+        IDataProtectionProvider dataProtectionProvider,
+        ILogger<RedisTokenStore> logger) {
         _redis = redis;
         _logger = logger;
         _db = redis.GetDatabase();
+        _protector = new TokenEntryProtector(dataProtectionProvider);
     }
 
     public async Task<(string AccessToken, string RefreshToken)> CreateSessionAsync(
@@ -54,7 +57,7 @@ public sealed class RedisTokenStore : ITokenStore {
         if (raw.IsNullOrEmpty) {
             return null;
         }
-        return DeserializeEntry(raw!);
+        return _protector.Unprotect(raw!);
     }
 
     public UserTokenEntry? GetDefaultToken() {
@@ -124,6 +127,16 @@ public sealed class RedisTokenStore : ITokenStore {
         return newMcpRefresh;
     }
 
+    public async Task<bool> InvalidateSessionAsync(string mcpToken) {
+        var existed = await _db.KeyExistsAsync(SessionKey(mcpToken)).ConfigureAwait(false);
+        if (!existed) {
+            return false;
+        }
+        await DeleteSessionAsync(mcpToken).ConfigureAwait(false);
+        _logger.LogInformation("MCP session removed | mcpToken={Hint}", SecretRedactor.Hint(mcpToken));
+        return true;
+    }
+
     public int PruneExpired() {
         // Redis TTL evicts keys; index cleanup happens opportunistically on cap enforcement.
         return 0;
@@ -164,7 +177,7 @@ public sealed class RedisTokenStore : ITokenStore {
 
     private async Task WriteSessionAsync(string mcpToken, string mcpRefresh, UserTokenEntry entry) {
         var ttl = ExpiryTtl(entry.ExpiresAt);
-        var payload = JsonSerializer.Serialize(entry, JsonOptions);
+        var payload = _protector.Protect(entry);
         var batch = _db.CreateBatch();
         var tasks = new List<Task> {
             batch.StringSetAsync(SessionKey(mcpToken), payload, ttl),
@@ -193,7 +206,10 @@ public sealed class RedisTokenStore : ITokenStore {
     private async Task DeleteSessionAsync(string mcpToken) {
         var entry = GetToken(mcpToken);
         var batch = _db.CreateBatch();
-        var tasks = new List<Task> { batch.KeyDeleteAsync(SessionKey(mcpToken)) };
+        var tasks = new List<Task> {
+            batch.KeyDeleteAsync(SessionKey(mcpToken)),
+            batch.SetRemoveAsync(SessionIndexKey, mcpToken)
+        };
         if (entry?.McpRefreshToken is not null) {
             tasks.Add(batch.KeyDeleteAsync(RefreshKey(entry.McpRefreshToken)));
         }
@@ -211,13 +227,5 @@ public sealed class RedisTokenStore : ITokenStore {
             return TimeSpan.FromMinutes(1);
         }
         return TimeSpan.FromMilliseconds(remainingMs);
-    }
-
-    private static UserTokenEntry? DeserializeEntry(string raw) {
-        try {
-            return JsonSerializer.Deserialize<UserTokenEntry>(raw, JsonOptions);
-        } catch (JsonException) {
-            return null;
-        }
     }
 }

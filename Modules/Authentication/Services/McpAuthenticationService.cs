@@ -62,8 +62,14 @@ public class McpAuthenticationService {
         context.Items[HaloPsaExpiryContextKey] = newExpiresAt;
     }
 
-    /// <summary>No-op kept for source compatibility — caches are gone now.</summary>
-    public void InvalidateToken(string token) {
-        _logger.LogDebug("InvalidateToken called for {Hint} (no cache to invalidate)", SecretRedactor.Hint(token));
+    /// <summary>Revokes an MCP session so the bearer token is no longer accepted.</summary>
+    public async Task<bool> InvalidateTokenAsync(string token) {
+        var removed = await _storage.InvalidateSessionAsync(token).ConfigureAwait(false);
+        if (removed) {
+            _logger.LogInformation("MCP session revoked | mcpToken={Hint}", SecretRedactor.Hint(token));
+        } else {
+            _logger.LogDebug("InvalidateToken — session not found | mcpToken={Hint}", SecretRedactor.Hint(token));
+        }
+        return removed;
     }
 }

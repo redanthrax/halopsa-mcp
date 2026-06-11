@@ -114,6 +114,7 @@ data/
 !tsconfig.json
 !package.json
 !package-lock.json
+!packages.lock.json
 !schema/catalog.json
 
 # Secrets (never commit these)

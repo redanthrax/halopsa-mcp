@@ -25,6 +25,8 @@ public interface ITokenStore : IDisposable {
     Task<string> RotateRefreshTokenAsync(
         string mcpAccessToken, string newHaloAccess, string newHaloRefresh, long newExpiresAt);
 
+    Task<bool> InvalidateSessionAsync(string mcpToken);
+
     int PruneExpired();
     bool HasValidTokens();
     int SessionCount { get; }

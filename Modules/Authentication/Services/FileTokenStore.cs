@@ -141,6 +141,15 @@ public sealed class FileTokenStore : ITokenStore {
         return newMcpRefresh;
     }
 
+    public async Task<bool> InvalidateSessionAsync(string mcpToken) {
+        if (!_memoryCache.TryRemove(mcpToken, out _)) {
+            return false;
+        }
+        await PersistAsync().ConfigureAwait(false);
+        _logger.LogInformation("MCP session removed | mcpToken={Hint}", SecretRedactor.Hint(mcpToken));
+        return true;
+    }
+
     public int PruneExpired() {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var removed = 0;

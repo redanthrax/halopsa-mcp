@@ -11,6 +11,8 @@ public static class ApiCallQueryHandler
         HaloPsaClientFactory factory,
         IHttpContextAccessor contextAccessor)
     {
+        ApiEndpointGuard.Validate(query.Endpoint, query.Method);
+
         var client = factory.CreateClientOrThrow(contextAccessor.HttpContext);
         object? bodyObj = null;
         if (!string.IsNullOrEmpty(query.Body))

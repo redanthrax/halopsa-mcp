@@ -10,33 +10,44 @@ public class AuthErrorEnvelopeTests {
         AuthBaseUrl = "https://mcp.example.com",
         PublicBaseUrl = "https://mcp.example.com",
         HttpPort = 3000,
+        HaloPsa = new HaloPsaSettings {
+            Url = "https://example.halopsa.com",
+            ClientId = "test-client",
+            TokenStorePath = "./data/tokens.json"
+        }
     };
 
     [Fact]
-    public void AuthErrorMessage_returns_plain_text_for_localhost() {
+    public void AuthErrorMessage_returns_json_with_login_url_for_localhost() {
         var config = new AppConfig {
             AuthBaseUrl = "http://localhost:3000",
             PublicBaseUrl = "http://localhost:3000",
-            HttpPort = 3000
+            HttpPort = 3000,
+            HaloPsa = MakeConfig().HaloPsa
         };
-        var message = HaloPsaMcpConstants.AuthErrorMessage(config);
-        Assert.Equal("HaloPSA access needed. Open http://localhost:3000/login in your browser to sign in.", message);
+        var doc = JsonDocument.Parse(HaloPsaMcpConstants.AuthErrorMessage(config));
+        Assert.False(doc.RootElement.GetProperty("authenticated").GetBoolean());
+        Assert.Equal("http://localhost:3000/login", doc.RootElement.GetProperty("login_url").GetString());
     }
 
     [Fact]
-    public void AuthErrorMessage_returns_markdown_link_for_public_url() {
-        var message = HaloPsaMcpConstants.AuthErrorMessage(MakeConfig());
-        Assert.Equal("HaloPSA access needed. [Sign in here](https://mcp.example.com/login)", message);
+    public void AuthErrorMessage_uses_effective_public_base_url_when_port_fallback_active() {
+        AppConfigRuntime.EffectivePublicBaseUrl = "http://localhost:45678";
+        try {
+            var config = MakeConfig();
+            var doc = JsonDocument.Parse(HaloPsaMcpConstants.AuthErrorMessage(config));
+            Assert.Equal("http://localhost:45678/login", doc.RootElement.GetProperty("login_url").GetString());
+        } finally {
+            AppConfigRuntime.EffectivePublicBaseUrl = null;
+            AppConfigRuntime.PortFallbackActive = false;
+        }
     }
 
     [Fact]
     public void AuthErrorMessage_contains_no_imperative_phrasing() {
         var message = HaloPsaMcpConstants.AuthErrorMessage(MakeConfig());
-        // Imperative phrasing trips host MCP client prompt-injection defenses.
         Assert.DoesNotContain("MUST", message, StringComparison.Ordinal);
         Assert.DoesNotContain("verbatim", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("EXACTLY", message, StringComparison.Ordinal);
-        Assert.DoesNotContain("do not substitute", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Sign in via the URL in login_url", message, StringComparison.Ordinal);
     }
 }

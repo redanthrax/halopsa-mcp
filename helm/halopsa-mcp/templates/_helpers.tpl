@@ -29,6 +29,18 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Container image reference. Prefer image.digest (sha256:...) in production;
+falls back to repository:tag or Chart.AppVersion when digest is unset.
+*/}}
+{{- define "halopsa-mcp.image" -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "halopsa-mcp.labels" -}}

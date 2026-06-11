@@ -50,3 +50,6 @@ When reviewing or reporting issues, pay particular attention to:
 - `halopsa_api_call` is restricted to relative `/api/` paths (GET/POST/PUT only)
 - NuGet dependencies are **lockfile-pinned** (`packages.lock.json`); CI restores with `--locked-mode`
 - PR CI runs **Trivy** on a built Docker image; releases no longer publish a `latest` tag
+- GitHub Actions are **pinned to commit SHAs**; Dependabot bumps the `# vN` comment
+- Helm supports **`image.digest`** (`repository@sha256:...`) for immutable AKS deploys
+- desktop MCP client stdio creates `logs/` with **0700** permissions

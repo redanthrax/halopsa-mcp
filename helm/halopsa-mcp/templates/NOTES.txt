@@ -40,6 +40,7 @@
 {{- end }}
 
 Configuration:
+- Container image: {{ include "halopsa-mcp.image" . }}
 - HaloPSA URL: {{ .Values.halopsa.url }}
 - Client ID: {{ .Values.halopsa.clientId }}
 - Auth Base URL: {{ .Values.halopsa.authBaseUrl }}

@@ -134,6 +134,9 @@ if (isHttpMode) {
 
     await app.RunAsync().ConfigureAwait(false);
 } else {
+    Directory.CreateDirectory("logs");
+    UnixFilePermissions.TrySetDirectoryUserOnly("logs");
+
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Host.UseSerilog((context, config) => {

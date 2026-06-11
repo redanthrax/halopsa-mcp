@@ -7,9 +7,10 @@ replicaCount: 1  # Increase when tokenStore.backend=redis
 image:
   repository: redanthrax/halopsa-mcp
   pullPolicy: IfNotPresent
-  # Leave empty to fall back to .Chart.AppVersion. Override per-environment.
-  # TODO digest-pin: pin via image.digest before AKS prod
+  # Tag when image.digest is empty (defaults to Chart.AppVersion).
   tag: ""
+  # Production: pin immutable image, e.g. sha256:abc123... (from docker inspect or release SBOM).
+  digest: ""
 
 imagePullSecrets: []
 nameOverride: ""

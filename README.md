@@ -165,7 +165,7 @@ Production checklist:
 - [ ] TLS terminated by ingress (cert-manager or Azure Application Gateway)
 - [ ] `networkPolicy.enabled=true`
 - [ ] `dcrInitialAccessToken` set (rotate on schedule)
-- [ ] `image.tag` pinned to a SemVer or digest, not `latest`
+- [ ] `image.digest` set to `sha256:...` (preferred) or `image.tag` pinned to a SemVer — not `latest`
 - [ ] Image pulled from your private ACR (mirror from Docker Hub)
 - [ ] DataProtection keys backed by Azure Key Vault (see Limitations)
 - [ ] `halopsa.publicBaseUrl` set to the externally reachable URL (e.g., `https://your-domain.com`)
@@ -177,7 +177,8 @@ Production checklist:
 | `replicaCount` | `1` | Increase when `halopsa.tokenStore.backend=redis`. |
 | `halopsa.tokenStore.backend` | `file` | `file` for single replica; `redis` for HA. |
 | `halopsa.redisConnection` | `""` | StackExchange.Redis connection string when backend is `redis`. |
-| `image.tag` | `""` (Chart.appVersion) | Pin to a SemVer or `@sha256:...` digest. |
+| `image.digest` | `""` | **Production:** `sha256:...` from release attestation or `docker buildx imagetools inspect`. |
+| `image.tag` | `""` (Chart.appVersion) | Used when `image.digest` is empty. |
 | `serviceAccount.create` | `true` | |
 | `serviceAccount.automountServiceAccountToken` | `false` | App does not call the K8s API. |
 | `securityContext.readOnlyRootFilesystem` | `true` | Writable paths are PVC + tmpfs `/tmp`. |

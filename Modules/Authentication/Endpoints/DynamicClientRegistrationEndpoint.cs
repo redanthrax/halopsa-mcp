@@ -9,8 +9,8 @@ namespace HaloPsaMcp.Modules.Authentication.Endpoints;
 
 /// <summary>
 /// OAuth 2.1 dynamic client registration. Public clients only (no secret).
-/// Persists registrations to disk via ClientRegistrationStore so subsequent
-/// /authorize calls can validate client_id + redirect_uri.
+/// Redirect URIs are canonicalized on registration (lowercase host, default port
+/// stripped, trailing slash removed). Persists via ClientRegistrationStore.
 /// </summary>
 internal static class DynamicClientRegistrationEndpoint {
     public static void MapDynamicClientRegistration(this IEndpointRouteBuilder app) {
@@ -24,11 +24,8 @@ internal static class DynamicClientRegistrationEndpoint {
         ILogger<RegisterMarker> logger,
         HttpContext http,
         [FromBody] JsonElement? body) {
-        // Initial Access Token (RFC 7591 §3) — optional hardening when MCP_DCR_INITIAL_ACCESS_TOKEN
-        // is set and MCP_ALLOW_OPEN_DCR is not. Bypass with MCP_ALLOW_OPEN_DCR=1 for MCP clients
-        // (e.g. Claude org connectors) that perform unauthenticated DCR.
         if (OAuthDiscovery.RequiresDcrInitialAccessToken()) {
-            var requiredIat = Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN")!;
+            var requiredIat = OAuthDiscovery.GetDcrInitialAccessToken()!;
             var authHeader = http.Request.Headers.Authorization.ToString();
             string? presented = null;
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
@@ -38,11 +35,6 @@ internal static class DynamicClientRegistrationEndpoint {
                 logger.LogWarning("DCR rejected — missing/invalid initial access token");
                 return RejectDcrUnauthorized(http);
             }
-        }
-
-        if (store.IsAtCapacity) {
-            logger.LogWarning("DCR rejected — registration store at capacity ({Count})", store.Count);
-            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
 
         string[] redirectUris = Array.Empty<string>();
@@ -61,7 +53,6 @@ internal static class DynamicClientRegistrationEndpoint {
             });
         }
 
-        // Validate every URI is a well-formed absolute URL with https or loopback http
         foreach (var u in redirectUris) {
             if (!Uri.TryCreate(u, UriKind.Absolute, out var parsed) ||
                 (parsed.Scheme != "https" && !(parsed.Scheme == "http" && parsed.IsLoopback))) {
@@ -70,8 +61,6 @@ internal static class DynamicClientRegistrationEndpoint {
                     error_description = $"Invalid redirect_uri: {u}"
                 });
             }
-            // Reject query / fragment in registered URIs to prevent code-injection by
-            // mixing the issued ?code= with attacker-controlled query state.
             if (u.Contains('?', StringComparison.Ordinal) || u.Contains('#', StringComparison.Ordinal)) {
                 return Results.BadRequest(new {
                     error = "invalid_redirect_uri",
@@ -80,13 +69,22 @@ internal static class DynamicClientRegistrationEndpoint {
             }
         }
 
+        redirectUris = RedirectUriNormalizer.NormalizeAll(redirectUris);
+
+        if (!await store.TryMakeRoomAsync().ConfigureAwait(false)) {
+            logger.LogWarning("DCR rejected — registration store at capacity ({Count})", store.Count);
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var clientId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16))
             .ToLower(CultureInfo.InvariantCulture);
         var registered = new RegisteredClient {
             ClientId = clientId,
             ClientSecret = null,
             RedirectUris = redirectUris,
-            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            CreatedAt = now,
+            LastUsedAt = now
         };
 
         if (!await store.AddAsync(registered).ConfigureAwait(false)) {

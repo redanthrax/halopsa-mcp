@@ -15,6 +15,8 @@ internal class AuthenticationModuleRegistrar : IModuleRegistrar {
     public int Priority => 2;
 
     public void Register(IServiceCollection services, IConfiguration configuration) {
+        services.AddRedisConnectionIfNeeded();
+
         // DataProtection (encrypts tokens.json + clients.json at rest).
         // Keys persisted to ./data/dp-keys so they survive restarts.
         var keyDir = Environment.GetEnvironmentVariable("HALOPSA_DPKEY_DIR") ?? "./data/dp-keys";
@@ -24,9 +26,11 @@ internal class AuthenticationModuleRegistrar : IModuleRegistrar {
             .PersistKeysToFileSystem(new DirectoryInfo(keyDir));
 
         services.AddTokenStore();
+        services.AddOAuthFlowStore();
         services.AddSingleton<ClientRegistrationStore>();
         services.AddSingleton<McpAuthenticationService>();
         services.AddHostedService<CleanupHostedService>();
+        services.AddHostedService<DataProtectionKeyLogger>();
         services.AddHttpContextAccessor();
     }
 }

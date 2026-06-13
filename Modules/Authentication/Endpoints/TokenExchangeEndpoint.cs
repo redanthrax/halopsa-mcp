@@ -24,6 +24,7 @@ internal static class TokenExchangeEndpoint {
     private static async Task<IResult> TokenExchange(
         AppConfig config,
         ITokenStore tokenStorage,
+        IOAuthFlowStore flowStore,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
         ILogger<TokenMarker> logger,
@@ -36,7 +37,7 @@ internal static class TokenExchangeEndpoint {
         [FromForm] string? resource) {
         return (grant_type ?? "authorization_code") switch {
             "authorization_code" => await HandleAuthorizationCode(
-                config, tokenStorage, logger, code, code_verifier, client_id, redirect_uri, resource)
+                config, tokenStorage, flowStore, logger, code, code_verifier, client_id, redirect_uri, resource)
                 .ConfigureAwait(false),
             "refresh_token" => await HandleRefreshToken(
                 config, tokenStorage, haloPsaConfig, httpClientFactory, logger, refresh_token, resource)
@@ -51,6 +52,7 @@ internal static class TokenExchangeEndpoint {
     private static async Task<IResult> HandleAuthorizationCode(
         AppConfig config,
         ITokenStore tokenStorage,
+        IOAuthFlowStore flowStore,
         ILogger logger,
         string? code,
         string? code_verifier,
@@ -70,7 +72,7 @@ internal static class TokenExchangeEndpoint {
             });
         }
 
-        if (!OAuthStateManager.CompletedAuths.TryRemove(code, out var completed) ||
+        if (!flowStore.TryRemoveCompleted(code, out var completed) || completed is null ||
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() > completed.Expires) {
             logger.LogWarning("Token rejected — code expired/unknown | codeHint={CodeHint}",
                 SecretRedactor.Hint(code));
@@ -91,7 +93,10 @@ internal static class TokenExchangeEndpoint {
         }
 
         if (!string.IsNullOrEmpty(completed.ClientRedirectUri) && !string.IsNullOrEmpty(redirect_uri) &&
-            !string.Equals(redirect_uri, completed.ClientRedirectUri, StringComparison.Ordinal)) {
+            !string.Equals(
+                RedirectUriNormalizer.Normalize(redirect_uri),
+                completed.ClientRedirectUri,
+                StringComparison.Ordinal)) {
             logger.LogWarning("Token rejected — redirect_uri mismatch | codeHint={CodeHint}",
                 SecretRedactor.Hint(code));
             return Results.BadRequest(new {

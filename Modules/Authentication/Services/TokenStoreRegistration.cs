@@ -20,7 +20,7 @@ internal static class TokenStoreRegistration {
                 throw new InvalidOperationException(
                     "HALOPSA_TOKEN_STORE_BACKEND=redis requires HALOPSA_REDIS_CONNECTION.");
             }
-            var redis = ConnectionMultiplexer.Connect(appConfig.HaloPsa.RedisConnection);
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             return new RedisTokenStore(
                 redis,
                 sp.GetRequiredService<IDataProtectionProvider>(),
@@ -36,5 +36,20 @@ internal static class TokenStoreRegistration {
             appConfig,
             sp.GetRequiredService<IDataProtectionProvider>(),
             sp.GetRequiredService<ILogger<FileTokenStore>>());
+    }
+
+    internal static void AddRedisConnectionIfNeeded(this IServiceCollection services) {
+        services.AddSingleton<IConnectionMultiplexer>(sp => {
+            var appConfig = sp.GetRequiredService<AppConfig>();
+            if (!string.Equals(appConfig.HaloPsa.TokenStoreBackend, "redis", StringComparison.OrdinalIgnoreCase)) {
+                throw new InvalidOperationException(
+                    "IConnectionMultiplexer is only available when HALOPSA_TOKEN_STORE_BACKEND=redis.");
+            }
+            if (string.IsNullOrWhiteSpace(appConfig.HaloPsa.RedisConnection)) {
+                throw new InvalidOperationException(
+                    "HALOPSA_TOKEN_STORE_BACKEND=redis requires HALOPSA_REDIS_CONNECTION.");
+            }
+            return ConnectionMultiplexer.Connect(appConfig.HaloPsa.RedisConnection);
+        });
     }
 }

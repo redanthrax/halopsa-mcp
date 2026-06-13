@@ -22,6 +22,7 @@ internal static class AuthorizeEndpoint {
         AppConfig config,
         HaloPsaConfig haloPsaConfig,
         ClientRegistrationStore clientStore,
+        IOAuthFlowStore flowStore,
         ILogger<AuthorizeMarker> logger,
         [FromQuery] string? client_id,
         [FromQuery] string? redirect_uri,
@@ -89,7 +90,7 @@ internal static class AuthorizeEndpoint {
             });
         }
 
-        OAuthStateManager.CleanExpiredEntries();
+        flowStore.CleanExpiredEntries();
 
         var clientCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(16))
             .ToLower(CultureInfo.InvariantCulture);
@@ -98,9 +99,9 @@ internal static class AuthorizeEndpoint {
         var oauthState = Convert.ToHexString(RandomNumberGenerator.GetBytes(16))
             .ToLower(CultureInfo.InvariantCulture);
 
-        OAuthStateManager.AddPending(oauthState, new PendingAuth {
+        flowStore.AddPending(oauthState, new PendingAuth {
             HaloPsaVerifier = haloPsaVerifier,
-            ClientRedirectUri = redirect_uri,
+            ClientRedirectUri = RedirectUriNormalizer.Normalize(redirect_uri),
             ClientState = state,
             ClientCodeChallenge = code_challenge,
             ClientCode = clientCode,

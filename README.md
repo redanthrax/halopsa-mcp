@@ -217,6 +217,12 @@ Production checklist:
 | `HALOPSA_TOKEN_STORE_BACKEND` | `file` | `file` (default) or `redis` for multi-replica HTTP |
 | `HALOPSA_TOKEN_STORE` | `./data/tokens.json` | Encrypted token store path (file backend) |
 | `HALOPSA_REDIS_CONNECTION` | _(unset)_ | Redis connection string when backend is `redis` |
+| `HALOPSA_REDIS_CONNECTION_FILE` | _(unset)_ | Docker-style: read Redis connection from mounted file (preferred in K8s) |
+| `HALOPSA_CLIENT_SECRET_FILE` | _(unset)_ | Read client secret from mounted file instead of env |
+| `MCP_DCR_INITIAL_ACCESS_TOKEN_FILE` | _(unset)_ | Read DCR initial access token from mounted file |
+| `MCP_ENABLED_TOOLS` | _(all tools)_ | Comma-separated allowlist, e.g. `halopsa_query,halopsa_list_tickets,halopsa_list_agents` |
+| `MCP_METRICS_ENABLED` | `0` | Set `1` to expose gated `/metrics` (Prometheus text format) |
+| `MCP_METRICS_TOKEN` | _(unset)_ | Optional bearer token required for `/metrics` |
 | `HALOPSA_DPKEY_DIR` | `./data/dp-keys` | DataProtection key ring |
 | `HTTP_PORT` | `3000` | Listener port |
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
@@ -246,14 +252,51 @@ Production checklist:
 - SQL allowlist (`SqlGuard`) on `halopsa_query`: only `SELECT`/`WITH … SELECT`, no comments/`;`/DDL/DML/EXEC, 8000-char cap
 - HSTS + ForwardedHeaders enabled in HTTP mode
 - Tokens + DCR registrations encrypted at rest via ASP.NET DataProtection
+- OAuth/DCR state shared across replicas via Redis (or file + watcher for best-effort HA)
+- Structured `tool_audit` log line per MCP tool call (`user`, `tool`, `args_hash`, `traceId`, `status`)
+- Per-deployment tool allowlist via `MCP_ENABLED_TOOLS`
+- Gated `/metrics` endpoint when `MCP_METRICS_ENABLED=1`
 - HaloPSA error response bodies redacted from logs
 - Container: non-root UID 1001, no curl/wget, K8s probes only
 
 ## Limitations
 
-- **File backend is single-replica.** Default `HALOPSA_TOKEN_STORE_BACKEND=file` uses a local encrypted JSON file + RWO PVC. For `replicaCount > 1`, set `halopsa.tokenStore.backend=redis` and provide `HALOPSA_REDIS_CONNECTION` (private Redis, TLS recommended).
+- **File backend is best-effort multi-replica.** Default `HALOPSA_TOKEN_STORE_BACKEND=file` uses a local encrypted JSON file + RWO PVC with FileSystemWatcher reload. OAuth flow state and DCR registrations follow the same pattern. For `replicaCount > 1`, set `halopsa.tokenStore.backend=redis` and provide `HALOPSA_REDIS_CONNECTION` (or `HALOPSA_REDIS_CONNECTION_FILE`) so sessions, OAuth state, and DCR are atomically shared.
 - **DataProtection keys on PVC.** Surviving cluster rebuilds requires backing up the PVC or wrapping with Azure Key Vault.
 - **Single HaloPSA tenant per deployment.**
+
+## Threat Model
+
+This server is designed for **operator-controlled deployments** where the organization trusts its own infrastructure but must constrain what AI clients can do against HaloPSA.
+
+**Trust assumptions**
+
+- **OAuth user consent is the primary gate.** Any MCP client that completes Dynamic Client Registration and drives a user through HaloPSA login receives a session scoped to that user's HaloPSA permissions. DCR is rate-limited; optionally gate it with `MCP_DCR_INITIAL_ACCESS_TOKEN` for private deployments.
+- **The MCP server inherits HaloPSA authorization.** Tools call HaloPSA as the authenticated user. Provision a dedicated low-privilege OAuth application for shared-team or org-wide connectors rather than reusing a super-admin app.
+- **SqlGuard enforces read-only SQL by design.** `halopsa_query` accepts only `SELECT` / `WITH … SELECT` against the reporting database — no DDL, DML, comments, or multi-statement batches. Other tools use typed REST endpoints; restrict surface area with `MCP_ENABLED_TOOLS`.
+- **Secrets should use `*_FILE` mounts in production.** Prefer `HALOPSA_REDIS_CONNECTION_FILE` and `MCP_DCR_INITIAL_ACCESS_TOKEN_FILE` over plain env vars so values never appear in `/proc/<pid>/environ` or `kubectl describe`.
+- **Redirect URIs are normalized at registration** (lowercase host, default port stripped, trailing slash removed) so `/cb` and `/cb/` match consistently.
+
+**Out of scope / residual risk**
+
+- A malicious but authenticated user can invoke every enabled tool with their own HaloPSA rights (by design).
+- File-backend multi-replica sync is eventually consistent; use Redis for strict HA.
+- Container images are signed with cosign (keyless, Sigstore) and include SPDX SBOMs in the OCI manifest; CycloneDX SBOMs are attached to GitHub release builds for admission-policy verification (Ratify/Kyverno).
+
+## Supply Chain
+
+Release tags (`v*`) trigger `.github/workflows/docker-build.yml`, which:
+
+1. Builds multi-arch images (`linux/amd64`, `linux/arm64`)
+2. Attaches an SPDX SBOM to the OCI manifest (`sbom: true`)
+3. Signs with cosign keyless (GitHub OIDC → Sigstore)
+4. Publishes a CycloneDX SBOM artifact for offline verification
+
+Verify at deploy time:
+
+```bash
+cosign verify redanthrax/halopsa-mcp:<version> --certificate-identity-regexp='.*' --certificate-oidc-issuer-regexp='.*'
+```
 
 ## Available Tools
 

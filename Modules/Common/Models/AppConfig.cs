@@ -1,4 +1,5 @@
 using System.Globalization;
+using HaloPsaMcp.Modules.Common.Security;
 using Microsoft.Extensions.Configuration;
 
 namespace HaloPsaMcp.Modules.Common.Models;
@@ -34,7 +35,7 @@ public class AppConfig {
             ?? throw new InvalidOperationException("HALOPSA_CLIENT_ID environment variable is required");
         var tokenStoreBackend = config["HALOPSA_TOKEN_STORE_BACKEND"] ?? "file";
         var tokenStorePath = config["HALOPSA_TOKEN_STORE"] ?? "./data/tokens.json";
-        var redisConnection = config["HALOPSA_REDIS_CONNECTION"];
+        var redisConnection = SecretEnv.Get("HALOPSA_REDIS_CONNECTION");
         var authBaseUrl = config["AUTH_BASE_URL"] ?? "";
         var publicBaseUrl = config["HALOPSA_PUBLIC_URL"]
             ?? config["PUBLIC_BASE_URL"]
@@ -52,7 +53,7 @@ public class AppConfig {
             HaloPsa = new HaloPsaSettings {
                 Url = haloPsaUrl,
                 ClientId = clientId,
-                ClientSecret = config["HALOPSA_CLIENT_SECRET"],
+                ClientSecret = SecretEnv.Get("HALOPSA_CLIENT_SECRET"),
                 TokenStoreBackend = tokenStoreBackend,
                 TokenStorePath = tokenStorePath,
                 RedisConnection = redisConnection

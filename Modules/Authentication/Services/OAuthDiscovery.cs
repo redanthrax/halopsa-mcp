@@ -1,5 +1,7 @@
 using HaloPsaMcp.Modules.Common.Models;
 
+using HaloPsaMcp.Modules.Common.Security;
+
 namespace HaloPsaMcp.Modules.Authentication.Services;
 
 /// <summary>
@@ -29,7 +31,7 @@ internal static class OAuthDiscovery {
     }
 
     public static bool IsDcrInitialAccessTokenConfigured() =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(DcrInitialAccessTokenEnv));
+        SecretEnv.IsSet(DcrInitialAccessTokenEnv);
 
     public static bool IsOpenDcrEnabled() {
         if (IsTruthy(Environment.GetEnvironmentVariable(OpenDcrEnv))) {
@@ -40,6 +42,9 @@ internal static class OAuthDiscovery {
 
     public static bool RequiresDcrInitialAccessToken() =>
         IsDcrInitialAccessTokenConfigured() && !IsTruthy(Environment.GetEnvironmentVariable(OpenDcrEnv));
+
+    public static string? GetDcrInitialAccessToken() =>
+        SecretEnv.Get(DcrInitialAccessTokenEnv);
 
     public static object BuildProtectedResourceMetadata(AppConfig config) {
         var authBaseUrl = AppConfigRuntime.ResolveAuthBaseUrl(config);

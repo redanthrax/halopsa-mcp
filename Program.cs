@@ -7,8 +7,10 @@ using HaloPsaMcp.Modules.Authentication.Endpoints;
 using HaloPsaMcp.Modules.Authentication.Middleware;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Middleware;
+using HaloPsaMcp.Modules.Common.Metrics;
 using HaloPsaMcp.Modules.Common.Models;
 using HaloPsaMcp.Modules.Common.Security;
+using HaloPsaMcp.Modules.HaloPsa.Middleware;
 using HaloPsaMcp.Modules.HaloPsa.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
@@ -75,7 +77,8 @@ if (isHttpMode) {
                 _ => new FixedWindowRateLimiterOptions {
                     PermitLimit = 60,
                     Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0
+                    QueueLimit = 5,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });
         });
         options.AddPolicy("register", httpContext =>
@@ -101,13 +104,16 @@ if (isHttpMode) {
     // to the static Handle methods in Modules/HaloPsa/Handlers.
     builder.Host.UseWolverine(opts => {
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+        opts.Policies.AddMiddleware(typeof(ToolAuditMiddleware), chain =>
+            chain.MessageType.Namespace?.StartsWith("HaloPsaMcp.Modules.HaloPsa", StringComparison.Ordinal) == true);
     });
 
     McpRuntime.HostMode = McpHostMode.Http;
 
     builder.Services.AddMcpServer()
         .WithHttpTransport(McpServerSetup.ConfigureHttpSessionInstructions)
-        .WithTools<HaloPsaMcpTools>();
+        .WithTools<HaloPsaMcpTools>()
+        .AddMcpToolPolicies();
     builder.Services.AddMcpSessionInstructions();
 
     var app = builder.Build();
@@ -118,6 +124,7 @@ if (isHttpMode) {
     app.UseRateLimiter();
 
     MapHealthEndpoints(app, startedAt);
+    app.MapMetrics(startedAt);
 
     app.MapOAuthEndpoints();
 
@@ -171,7 +178,8 @@ if (isHttpMode) {
                 _ => new FixedWindowRateLimiterOptions {
                     PermitLimit = 60,
                     Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0
+                    QueueLimit = 5,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 }));
     });
 
@@ -194,13 +202,16 @@ if (isHttpMode) {
 
     builder.Host.UseWolverine(opts => {
         opts.Discovery.IncludeAssembly(typeof(Program).Assembly);
+        opts.Policies.AddMiddleware(typeof(ToolAuditMiddleware), chain =>
+            chain.MessageType.Namespace?.StartsWith("HaloPsaMcp.Modules.HaloPsa", StringComparison.Ordinal) == true);
     });
 
     McpRuntime.HostMode = McpHostMode.DesktopStdio;
 
     builder.Services.AddMcpServer()
         .WithStdioServerTransport()
-        .WithTools<HaloPsaMcpTools>();
+        .WithTools<HaloPsaMcpTools>()
+        .AddMcpToolPolicies();
     builder.Services.AddMcpSessionInstructions();
     builder.Services.AddHostedService<DesktopLoginBootstrapService>();
 
@@ -209,6 +220,7 @@ if (isHttpMode) {
     app.UseRateLimiter();
     app.MapOAuthEndpoints();
     MapHealthEndpoints(app, startedAt);
+    app.MapMetrics(startedAt);
 
     var loginUrl = HaloPsaMcpConstants.GetLoginUrl(appConfig);
     Log.Information("HaloPSA MCP ready (desktop stdio)");

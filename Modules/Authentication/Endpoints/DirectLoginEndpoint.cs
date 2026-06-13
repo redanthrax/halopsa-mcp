@@ -20,15 +20,15 @@ internal static class DirectLoginEndpoint
         app.MapDesktopStatus();
     }
 
-    private static IResult DirectLogin(AppConfig config, HaloPsaConfig haloPsaConfig)
+    private static IResult DirectLogin(AppConfig config, HaloPsaConfig haloPsaConfig, IOAuthFlowStore flowStore)
     {
-        OAuthStateManager.CleanExpiredEntries();
+        flowStore.CleanExpiredEntries();
 
         var verifier = PkceHelper.GenerateCodeVerifier();
         var challenge = PkceHelper.GenerateCodeChallenge(verifier);
         var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLower(CultureInfo.InvariantCulture);
 
-        OAuthStateManager.PendingAuths[state] = new PendingAuth
+        flowStore.AddPending(state, new PendingAuth
         {
             HaloPsaVerifier = verifier,
             ClientRedirectUri = $"{AppConfigRuntime.ResolveAuthBaseUrl(config)}/success",
@@ -37,7 +37,7 @@ internal static class DirectLoginEndpoint
             ClientCode = string.Empty,
             Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 10 * 60 * 1000,
             IsDirectLogin = true
-        };
+        });
 
         var haloPsaAuthUrl = PkceHelper.BuildAuthUrl(
             haloPsaConfig.Url,

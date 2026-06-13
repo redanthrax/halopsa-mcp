@@ -20,7 +20,7 @@ internal static class HttpStartupGuards {
     }
 
     internal static bool IsDcrInitialAccessTokenConfigured() =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN"));
+        SecretEnv.IsSet("MCP_DCR_INITIAL_ACCESS_TOKEN");
 
     internal static bool StdioOAuthBindAllInterfaces() =>
         IsTruthy(Environment.GetEnvironmentVariable("HTTP_BIND_ALL"));

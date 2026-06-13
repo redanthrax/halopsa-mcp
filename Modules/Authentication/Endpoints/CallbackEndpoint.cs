@@ -23,6 +23,7 @@ internal static class CallbackEndpoint {
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
         ITokenStore tokenStorage,
+        IOAuthFlowStore flowStore,
         ILogger<CallbackMarker> logger,
         [FromQuery] string? code,
         [FromQuery] string? state,
@@ -33,7 +34,7 @@ internal static class CallbackEndpoint {
             return Results.BadRequest("Authorization failed or missing parameters");
         }
 
-        if (!OAuthStateManager.PendingAuths.TryRemove(state, out var pending) ||
+        if (!flowStore.TryRemovePending(state, out var pending) || pending is null ||
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() > pending.Expires) {
             logger.LogWarning("Callback rejected — state expired/unknown | stateHint={StateHint}",
                 SecretRedactor.Hint(state));
@@ -81,7 +82,7 @@ internal static class CallbackEndpoint {
             }
 
             // MCP-client flow: stash HaloPSA tokens behind a short-lived authorization code
-            OAuthStateManager.AddCompleted(pending.ClientCode, new CompletedAuth {
+            flowStore.AddCompleted(pending.ClientCode, new CompletedAuth {
                 AccessToken = tokenData.access_token,
                 RefreshToken = tokenData.refresh_token ?? string.Empty,
                 ExpiresIn = expiresIn,

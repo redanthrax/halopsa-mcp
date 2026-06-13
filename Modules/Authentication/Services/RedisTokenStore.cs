@@ -60,7 +60,9 @@ public sealed class RedisTokenStore : ITokenStore {
         return _protector.Unprotect(raw!);
     }
 
-    public UserTokenEntry? GetDefaultToken() {
+    public UserTokenEntry? GetDefaultToken() => GetDefaultSession()?.Value;
+
+    public KeyValuePair<string, UserTokenEntry>? GetDefaultSession() {
         if (TokenStoreRuntime.DisableDefaultFallback) {
             return null;
         }
@@ -68,7 +70,11 @@ public sealed class RedisTokenStore : ITokenStore {
         if (latest.IsNullOrEmpty) {
             return null;
         }
-        return GetToken(latest!);
+        var entry = GetToken(latest!);
+        if (entry is null || !SessionValidity.IsUsable(entry)) {
+            return null;
+        }
+        return new KeyValuePair<string, UserTokenEntry>(latest!, entry);
     }
 
     public bool IsValidSession(string mcpToken) {
@@ -76,7 +82,7 @@ public sealed class RedisTokenStore : ITokenStore {
         if (entry is null) {
             return false;
         }
-        return entry.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        return SessionValidity.IsUsable(entry);
     }
 
     public async Task UpdateSessionTokensAsync(
@@ -148,11 +154,10 @@ public sealed class RedisTokenStore : ITokenStore {
 
     public int ActiveSessionCount {
         get {
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var count = 0;
             foreach (var token in _db.SetMembers(SessionIndexKey)) {
                 var entry = GetToken(token!);
-                if (entry is not null && entry.ExpiresAt > now) {
+                if (entry is not null && SessionValidity.IsUsable(entry)) {
                     count++;
                 }
             }
@@ -176,7 +181,7 @@ public sealed class RedisTokenStore : ITokenStore {
     }
 
     private async Task WriteSessionAsync(string mcpToken, string mcpRefresh, UserTokenEntry entry) {
-        var ttl = ExpiryTtl(entry.ExpiresAt);
+        var ttl = SessionTtl(entry);
         var payload = _protector.Protect(entry);
         var batch = _db.CreateBatch();
         var tasks = new List<Task> {
@@ -221,11 +226,18 @@ public sealed class RedisTokenStore : ITokenStore {
 
     private static string RefreshKey(string mcpRefresh) => RefreshKeyPrefix + mcpRefresh;
 
-    private static TimeSpan ExpiryTtl(long expiresAtUnixMs) {
-        var remainingMs = expiresAtUnixMs - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (remainingMs <= 0) {
-            return TimeSpan.FromMinutes(1);
+    private static TimeSpan SessionTtl(UserTokenEntry entry) {
+        var remainingMs = entry.ExpiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var accessTtl = remainingMs <= 0
+            ? TimeSpan.FromMinutes(1)
+            : TimeSpan.FromMilliseconds(remainingMs);
+
+        if (string.IsNullOrWhiteSpace(entry.RefreshToken)) {
+            return accessTtl;
         }
-        return TimeSpan.FromMilliseconds(remainingMs);
+
+        // Keep Redis keys while a HaloPSA refresh token may still renew access.
+        var refreshRetention = TimeSpan.FromDays(30);
+        return accessTtl > refreshRetention ? accessTtl : refreshRetention;
     }
 }

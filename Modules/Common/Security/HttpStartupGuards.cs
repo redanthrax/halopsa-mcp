@@ -5,8 +5,10 @@ internal static class HttpStartupGuards {
     private const string OpenDcrEnv = "MCP_ALLOW_OPEN_DCR";
 
     internal static void EnsureHttpModeSecurity() {
-        var iat = Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN");
-        if (!string.IsNullOrWhiteSpace(iat)) {
+        if (IsDcrInitialAccessTokenConfigured()) {
+            if (IsTruthy(Environment.GetEnvironmentVariable(OpenDcrEnv))) {
+                return;
+            }
             return;
         }
 
@@ -14,14 +16,15 @@ internal static class HttpStartupGuards {
             return;
         }
 
-        throw new InvalidOperationException(
-            "HTTP mode requires MCP_DCR_INITIAL_ACCESS_TOKEN so /register (DCR) is not open to the internet. "
-            + $"For local Docker testing only, set {OpenDcrEnv}=1.");
+        // Open DCR is the MCP default (rate-limited). Set MCP_DCR_INITIAL_ACCESS_TOKEN to gate /register.
     }
+
+    internal static bool IsDcrInitialAccessTokenConfigured() =>
+        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN"));
 
     internal static bool StdioOAuthBindAllInterfaces() =>
         IsTruthy(Environment.GetEnvironmentVariable("HTTP_BIND_ALL"));
 
-    private static bool IsTruthy(string? value) =>
+    internal static bool IsTruthy(string? value) =>
         value is "1" or "true" or "yes" or "on";
 }

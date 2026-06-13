@@ -162,5 +162,10 @@ podDisruptionBudget:
   # maxUnavailable: 1
 
 # Optional Initial Access Token gate for /register (DCR).
-# When set, /register requires Authorization: Bearer <this token>.
+# When set, /register requires Authorization: Bearer <this token> unless
+# dcrAllowOpen is true (required for Claude.ai org connectors and other MCP clients
+# that perform unauthenticated DCR).
 dcrInitialAccessToken: ""
+# When true, sets MCP_ALLOW_OPEN_DCR=1 so /register accepts unauthenticated DCR
+# even if dcrInitialAccessToken is set.
+dcrAllowOpen: false

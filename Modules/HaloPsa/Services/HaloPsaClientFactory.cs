@@ -62,11 +62,12 @@ public class HaloPsaClientFactory {
                 }
             }
         } else {
-            var entry = _tokenStorage.GetDefaultToken();
-            if (entry != null) {
-                userToken = entry.AccessToken;
-                refreshToken = entry.RefreshToken;
-                expiresAt = entry.ExpiresAt;
+            var defaultSession = _tokenStorage.GetDefaultSession();
+            if (defaultSession is not null) {
+                mcpSessionToken = defaultSession.Value.Key;
+                userToken = defaultSession.Value.Value.AccessToken;
+                refreshToken = defaultSession.Value.Value.RefreshToken;
+                expiresAt = defaultSession.Value.Value.ExpiresAt;
             }
         }
 
@@ -90,8 +91,6 @@ public class HaloPsaClientFactory {
                 if (!string.IsNullOrEmpty(capturedMcpToken)) {
                     _ = _tokenStorage.UpdateSessionTokensAsync(
                         capturedMcpToken, newToken, newRefreshToken, newExpiresAt);
-                } else {
-                    _logger.LogDebug("Refresh occurred without MCP session token — skipping persist");
                 }
             }
         };

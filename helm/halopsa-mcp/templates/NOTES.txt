@@ -46,7 +46,7 @@ Configuration:
 - Auth Base URL: {{ .Values.halopsa.authBaseUrl }}
 - Token Storage: {{ if .Values.persistence.enabled }}Persistent ({{ .Values.persistence.size }}){{ else }}EmptyDir (ephemeral){{ end }}
 - NetworkPolicy: {{ if .Values.networkPolicy.enabled }}enabled{{ else }}DISABLED (recommend enabling in prod){{ end }}
-- DCR Initial Access Token: {{ if .Values.dcrInitialAccessToken }}set ({{ "/register" }} gated){{ else }}NOT set ({{ "/register" }} is OPEN){{ end }}
+- DCR: {{ if .Values.dcrAllowOpen }}open (MCP_ALLOW_OPEN_DCR=1){{ else if .Values.dcrInitialAccessToken }}gated via initial access token{{ else }}open (rate-limited){{ end }}
 {{- if and .Values.podDisruptionBudget.enabled (eq (int .Values.replicaCount) 1) }}
 
 WARNING: PodDisruptionBudget is enabled with replicaCount=1. Single-replica

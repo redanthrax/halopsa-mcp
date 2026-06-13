@@ -1,13 +1,5 @@
-using System.Collections.Concurrent;
-#pragma warning disable IDE0005 // Using directives flagged as unnecessary but are required for the code
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text.Json;
-using HaloPsaMcp.Modules.Authentication.Models;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Models;
-using HaloPsaMcp.Modules.HaloPsa.Models;
-using Microsoft.AspNetCore.Mvc;
 
 namespace HaloPsaMcp.Modules.Authentication.Endpoints;
 
@@ -18,18 +10,17 @@ internal static class ProtectedResourceMetadataEndpoint
 {
     public static void MapProtectedResourceMetadata(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/.well-known/oauth-protected-resource", ProtectedResourceMetadata);
+        app.MapGet("/.well-known/oauth-protected-resource", (AppConfig config) =>
+            ProtectedResourceMetadata(config, resourcePath: null));
+        app.MapGet("/.well-known/oauth-protected-resource/{*resourcePath}", (AppConfig config, string resourcePath) =>
+            ProtectedResourceMetadata(config, resourcePath));
     }
 
-    private static IResult ProtectedResourceMetadata(AppConfig config)
+    private static IResult ProtectedResourceMetadata(AppConfig config, string? resourcePath)
     {
-        var authBaseUrl = AppConfigRuntime.ResolveAuthBaseUrl(config);
-        return Results.Ok(new
-        {
-            resource = authBaseUrl,
-            authorization_servers = new[] { authBaseUrl },
-            bearer_methods_supported = new[] { "header" },
-            resource_name = "HaloPSA MCP"
-        });
+        if (!OAuthDiscovery.IsKnownProtectedResourcePath(resourcePath)) {
+            return Results.NotFound();
+        }
+        return Results.Ok(OAuthDiscovery.BuildProtectedResourceMetadata(config));
     }
 }

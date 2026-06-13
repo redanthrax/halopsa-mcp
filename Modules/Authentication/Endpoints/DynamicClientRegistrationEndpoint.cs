@@ -24,11 +24,11 @@ internal static class DynamicClientRegistrationEndpoint {
         ILogger<RegisterMarker> logger,
         HttpContext http,
         [FromBody] JsonElement? body) {
-        // Initial Access Token (RFC 7591 §3) — when MCP_DCR_INITIAL_ACCESS_TOKEN is
-        // set, every /register call must present it as a Bearer credential. In AKS
-        // this is the deploy-time guard against open client registration.
-        var requiredIat = Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN");
-        if (!string.IsNullOrEmpty(requiredIat)) {
+        // Initial Access Token (RFC 7591 §3) — optional hardening when MCP_DCR_INITIAL_ACCESS_TOKEN
+        // is set and MCP_ALLOW_OPEN_DCR is not. Bypass with MCP_ALLOW_OPEN_DCR=1 for MCP clients
+        // (e.g. Claude org connectors) that perform unauthenticated DCR.
+        if (OAuthDiscovery.RequiresDcrInitialAccessToken()) {
+            var requiredIat = Environment.GetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN")!;
             var authHeader = http.Request.Headers.Authorization.ToString();
             string? presented = null;
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
@@ -36,7 +36,7 @@ internal static class DynamicClientRegistrationEndpoint {
             }
             if (presented is null || !FixedTimeEquals(presented, requiredIat)) {
                 logger.LogWarning("DCR rejected — missing/invalid initial access token");
-                return Results.Unauthorized();
+                return RejectDcrUnauthorized(http);
             }
         }
 
@@ -107,6 +107,17 @@ internal static class DynamicClientRegistrationEndpoint {
     }
 
     internal sealed class RegisterMarker { }
+
+    private static IResult RejectDcrUnauthorized(HttpContext http) {
+        http.Response.Headers.Append(
+            "WWW-Authenticate",
+            "Bearer error=\"invalid_token\", error_description=\"initial_access_token required\"");
+        return Results.Json(new {
+            error = "invalid_token",
+            error_description =
+                "Initial access token required. Present MCP_DCR_INITIAL_ACCESS_TOKEN as a Bearer credential."
+        }, statusCode: StatusCodes.Status401Unauthorized);
+    }
 
     private static bool FixedTimeEquals(string a, string b) {
         var ab = System.Text.Encoding.UTF8.GetBytes(a);

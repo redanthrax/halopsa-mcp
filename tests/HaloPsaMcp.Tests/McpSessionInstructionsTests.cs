@@ -77,6 +77,7 @@ public class McpSessionInstructionsTests {
 
         public UserTokenEntry? GetToken(string mcpToken) => null;
         public UserTokenEntry? GetDefaultToken() => null;
+        public KeyValuePair<string, UserTokenEntry>? GetDefaultSession() => null;
 
         public Task UpdateSessionTokensAsync(
             string mcpToken, string newHaloAccess, string newHaloRefresh, long newExpiresAt) =>

@@ -90,6 +90,10 @@ spec:
               name: {{ include "halopsa-mcp.fullname" . }}-secret
               key: mcp_dcr_initial_access_token
         {{- end }}
+        {{- if .Values.dcrAllowOpen }}
+        - name: MCP_ALLOW_OPEN_DCR
+          value: "1"
+        {{- end }}
         volumeMounts:
         - name: token-storage
           mountPath: /app/data

@@ -5,12 +5,11 @@ namespace HaloPsaMcp.Tests;
 
 public class HttpStartupGuardsTests {
     [Fact]
-    public void EnsureHttpModeSecurity_throws_when_iat_missing_and_open_dcr_disabled() {
+    public void EnsureHttpModeSecurity_passes_without_iat_or_open_dcr_flag() {
         Environment.SetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN", null);
         Environment.SetEnvironmentVariable("MCP_ALLOW_OPEN_DCR", null);
         try {
-            var ex = Assert.Throws<InvalidOperationException>(HttpStartupGuards.EnsureHttpModeSecurity);
-            Assert.Contains("MCP_DCR_INITIAL_ACCESS_TOKEN", ex.Message, StringComparison.Ordinal);
+            HttpStartupGuards.EnsureHttpModeSecurity();
         } finally {
             Environment.SetEnvironmentVariable("MCP_DCR_INITIAL_ACCESS_TOKEN", null);
             Environment.SetEnvironmentVariable("MCP_ALLOW_OPEN_DCR", null);

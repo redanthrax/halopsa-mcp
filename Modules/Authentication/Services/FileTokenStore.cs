@@ -85,20 +85,27 @@ public sealed class FileTokenStore : ITokenStore {
         return entry;
     }
 
-    public UserTokenEntry? GetDefaultToken() {
+    public UserTokenEntry? GetDefaultToken() => GetDefaultSession()?.Value;
+
+    public KeyValuePair<string, UserTokenEntry>? GetDefaultSession() {
         if (TokenStoreRuntime.DisableDefaultFallback) {
             return null;
         }
-        return _memoryCache.Values
-            .OrderByDescending(t => t.ExpiresAt)
+        var best = _memoryCache
+            .Where(kvp => SessionValidity.IsUsable(kvp.Value))
+            .OrderByDescending(kvp => kvp.Value.ExpiresAt)
             .FirstOrDefault();
+        if (string.IsNullOrEmpty(best.Key)) {
+            return null;
+        }
+        return best;
     }
 
     public bool IsValidSession(string mcpToken) {
         if (!_memoryCache.TryGetValue(mcpToken, out var entry)) {
             return false;
         }
-        return entry.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        return SessionValidity.IsUsable(entry);
     }
 
     public async Task UpdateSessionTokensAsync(
@@ -151,9 +158,8 @@ public sealed class FileTokenStore : ITokenStore {
     }
 
     public int PruneExpired() {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var removed = 0;
-        foreach (var kvp in _memoryCache.Where(x => x.Value.ExpiresAt <= now).ToArray()) {
+        foreach (var kvp in _memoryCache.Where(x => !SessionValidity.IsUsable(x.Value)).ToArray()) {
             if (_memoryCache.TryRemove(kvp.Key, out _)) {
                 removed++;
             }
@@ -165,18 +171,12 @@ public sealed class FileTokenStore : ITokenStore {
     }
 
     public bool HasValidTokens() {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        return _memoryCache.Values.Any(t => t.ExpiresAt > now);
+        return _memoryCache.Values.Any(e => SessionValidity.IsUsable(e));
     }
 
     public int SessionCount => _memoryCache.Count;
 
-    public int ActiveSessionCount {
-        get {
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            return _memoryCache.Values.Count(t => t.ExpiresAt > now);
-        }
-    }
+    public int ActiveSessionCount => _memoryCache.Values.Count(e => SessionValidity.IsUsable(e));
 
     public ValueTask<bool> CheckHealthAsync(CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(true);

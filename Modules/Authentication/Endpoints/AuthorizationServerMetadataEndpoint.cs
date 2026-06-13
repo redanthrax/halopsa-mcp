@@ -1,3 +1,4 @@
+using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Models;
 
 namespace HaloPsaMcp.Modules.Authentication.Endpoints;
@@ -9,22 +10,17 @@ internal static class AuthorizationServerMetadataEndpoint
 {
     public static void MapAuthorizationServerMetadata(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/.well-known/oauth-authorization-server", AuthorizationServerMetadata);
+        app.MapGet("/.well-known/oauth-authorization-server", (AppConfig config) =>
+            AuthorizationServerMetadata(config, resourcePath: null));
+        app.MapGet("/.well-known/oauth-authorization-server/{*resourcePath}", (AppConfig config, string resourcePath) =>
+            AuthorizationServerMetadata(config, resourcePath));
     }
 
-    private static IResult AuthorizationServerMetadata(AppConfig config)
+    private static IResult AuthorizationServerMetadata(AppConfig config, string? resourcePath)
     {
-        var authBaseUrl = AppConfigRuntime.ResolveAuthBaseUrl(config);
-        return Results.Ok(new
-        {
-            issuer = authBaseUrl,
-            authorization_endpoint = $"{authBaseUrl}/authorize",
-            token_endpoint = $"{authBaseUrl}/token",
-            registration_endpoint = $"{authBaseUrl}/register",
-            response_types_supported = new[] { "code" },
-            grant_types_supported = new[] { "authorization_code" },
-            code_challenge_methods_supported = new[] { "S256" },
-            token_endpoint_auth_methods_supported = new[] { "none" }
-        });
+        if (!OAuthDiscovery.IsKnownAuthorizationServerPath(resourcePath)) {
+            return Results.NotFound();
+        }
+        return Results.Ok(OAuthDiscovery.BuildAuthorizationServerMetadata(config));
     }
 }

@@ -15,6 +15,7 @@ public interface ITokenStore : IDisposable {
 
     UserTokenEntry? GetToken(string mcpToken);
     UserTokenEntry? GetDefaultToken();
+    KeyValuePair<string, UserTokenEntry>? GetDefaultSession();
     bool IsValidSession(string mcpToken);
 
     Task UpdateSessionTokensAsync(

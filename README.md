@@ -220,8 +220,8 @@ Production checklist:
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
 | `HALOPSA_PUBLIC_URL` | `${AUTH_BASE_URL}` | Public base URL for login links (defaults to `AUTH_BASE_URL`) |
 | `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
-| `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | **Required for `--http`/Docker/K8s** (startup fails without it). Gates `/register` (DCR). |
-| `MCP_ALLOW_OPEN_DCR` | _(unset)_ | `1` = allow open `/register` without IAT — **local Docker only** |
+| `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | Optional. When set, gates `/register` (DCR) unless `MCP_ALLOW_OPEN_DCR=1`. Advertised in authorization-server metadata. |
+| `MCP_ALLOW_OPEN_DCR` | _(unset)_ | `1` = allow unauthenticated DCR (required for Claude.ai org connectors). Rate-limited. |
 | `HTTP_BIND_ALL` | _(unset)_ | `1` = bind stdio OAuth to all interfaces (default: localhost only) |
 | `TRUSTED_PROXY_CIDRS` | RFC1918 private | Comma-separated CIDRs for `X-Forwarded-*`; `none` disables |
 | `MCP_READY_VERBOSE` | `0` | `1` exposes detailed `/ready` JSON for trusted scrapers |

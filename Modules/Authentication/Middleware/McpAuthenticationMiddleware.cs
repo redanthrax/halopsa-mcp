@@ -19,6 +19,12 @@ internal class McpAuthenticationMiddleware {
     }
 
     public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, ITokenStore tokenStorage, AppConfig appConfig) {
+        // CORS preflight must not require auth (handled by UseCors; pass through if reached here).
+        if (HttpMethods.IsOptions(context.Request.Method)) {
+            await _next(context).ConfigureAwait(false);
+            return;
+        }
+
         var sw = Stopwatch.StartNew();
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         string? token = null;

@@ -52,6 +52,10 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # cert-manager.io/cluster-issuer: letsencrypt-prod
+  # Optional nginx ingress CORS (belt-and-suspenders; app handles CORS by default).
+  cors:
+    enabled: false
+    allowOrigin: "https://claude.ai"
   hosts:
     - host: halopsa-mcp.example.com
       paths:
@@ -160,6 +164,10 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
+
+# CORS for browser MCP clients (Claude.ai org connectors). Comma-separated origins.
+cors:
+  allowedOrigins: "https://claude.ai"
 
 # Optional Initial Access Token gate for /register (DCR).
 # When set, /register requires Authorization: Bearer <this token> unless

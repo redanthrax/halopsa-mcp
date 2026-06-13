@@ -222,6 +222,7 @@ Production checklist:
 | `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
 | `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | Optional. When set, gates `/register` (DCR) unless `MCP_ALLOW_OPEN_DCR=1`. Advertised in authorization-server metadata. |
 | `MCP_ALLOW_OPEN_DCR` | _(unset)_ | `1` = allow unauthenticated DCR (required for Claude.ai org connectors). Rate-limited. |
+| `MCP_CORS_ALLOWED_ORIGINS` | `https://claude.ai` | Comma-separated browser origins allowed for MCP/OAuth CORS (required for Claude.ai connectors). |
 | `HTTP_BIND_ALL` | _(unset)_ | `1` = bind stdio OAuth to all interfaces (default: localhost only) |
 | `TRUSTED_PROXY_CIDRS` | RFC1918 private | Comma-separated CIDRs for `X-Forwarded-*`; `none` disables |
 | `MCP_READY_VERBOSE` | `0` | `1` exposes detailed `/ready` JSON for trusted scrapers |

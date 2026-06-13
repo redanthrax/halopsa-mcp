@@ -92,6 +92,7 @@ if (isHttpMode) {
         o.IncludeSubDomains = true;
         o.MaxAge = TimeSpan.FromDays(180);
     });
+    builder.Services.AddMcpCors();
     builder.WebHost.ConfigureKestrel(options => {
         options.ListenAnyIP(appConfig.HttpPort);
     });
@@ -113,6 +114,7 @@ if (isHttpMode) {
 
     app.UseForwardedHeaders();
     app.UseHsts();
+    app.UseCors(McpCorsConfiguration.PolicyName);
     app.UseRateLimiter();
 
     MapHealthEndpoints(app, startedAt);

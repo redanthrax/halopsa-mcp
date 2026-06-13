@@ -76,6 +76,10 @@ spec:
           value: {{ .Values.logFormat | quote }}
         - name: MCP_READY_VERBOSE
           value: {{ .Values.readyVerbose | ternary "1" "0" | quote }}
+        {{- if .Values.cors.allowedOrigins }}
+        - name: MCP_CORS_ALLOWED_ORIGINS
+          value: {{ .Values.cors.allowedOrigins | quote }}
+        {{- end }}
         {{- if .Values.halopsa.clientSecret }}
         - name: HALOPSA_CLIENT_SECRET
           valueFrom:

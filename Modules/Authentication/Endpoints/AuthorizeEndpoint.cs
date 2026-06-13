@@ -27,13 +27,23 @@ internal static class AuthorizeEndpoint {
         [FromQuery] string? redirect_uri,
         [FromQuery] string? code_challenge,
         [FromQuery] string? code_challenge_method,
-        [FromQuery] string? state) {
+        [FromQuery] string? state,
+        [FromQuery] string? resource) {
         if (string.IsNullOrEmpty(client_id) ||
             string.IsNullOrEmpty(redirect_uri) ||
             string.IsNullOrEmpty(code_challenge)) {
             return Results.BadRequest(new {
                 error = "invalid_request",
                 error_description = "Missing client_id, redirect_uri or code_challenge"
+            });
+        }
+
+        if (!OAuthResourceValidation.IsValid(config, resource)) {
+            logger.LogWarning("Authorize rejected — invalid resource | resource={Resource}",
+                resource);
+            return Results.BadRequest(new {
+                error = "invalid_target",
+                error_description = "Requested resource is not supported by this authorization server"
             });
         }
 
@@ -95,6 +105,7 @@ internal static class AuthorizeEndpoint {
             ClientCodeChallenge = code_challenge,
             ClientCode = clientCode,
             ClientId = client_id,
+            Resource = OAuthResourceValidation.BindResource(config, resource),
             Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 10 * 60 * 1000
         });
 

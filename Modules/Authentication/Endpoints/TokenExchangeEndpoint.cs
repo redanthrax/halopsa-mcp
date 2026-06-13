@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using HaloPsaMcp.Modules.Authentication.Models;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.HaloPsa.Models;
+using HaloPsaMcp.Modules.Common.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HaloPsaMcp.Modules.Authentication.Endpoints;
@@ -21,6 +22,7 @@ internal static class TokenExchangeEndpoint {
     }
 
     private static async Task<IResult> TokenExchange(
+        AppConfig config,
         ITokenStore tokenStorage,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
@@ -28,10 +30,17 @@ internal static class TokenExchangeEndpoint {
         [FromForm] string? grant_type,
         [FromForm] string? code,
         [FromForm] string? code_verifier,
-        [FromForm] string? refresh_token) {
+        [FromForm] string? refresh_token,
+        [FromForm] string? client_id,
+        [FromForm] string? redirect_uri,
+        [FromForm] string? resource) {
         return (grant_type ?? "authorization_code") switch {
-            "authorization_code" => await HandleAuthorizationCode(tokenStorage, logger, code, code_verifier).ConfigureAwait(false),
-            "refresh_token" => await HandleRefreshToken(tokenStorage, haloPsaConfig, httpClientFactory, logger, refresh_token).ConfigureAwait(false),
+            "authorization_code" => await HandleAuthorizationCode(
+                config, tokenStorage, logger, code, code_verifier, client_id, redirect_uri, resource)
+                .ConfigureAwait(false),
+            "refresh_token" => await HandleRefreshToken(
+                config, tokenStorage, haloPsaConfig, httpClientFactory, logger, refresh_token, resource)
+                .ConfigureAwait(false),
             _ => Results.BadRequest(new {
                 error = "unsupported_grant_type",
                 error_description = $"grant_type '{grant_type}' is not supported"
@@ -40,13 +49,24 @@ internal static class TokenExchangeEndpoint {
     }
 
     private static async Task<IResult> HandleAuthorizationCode(
+        AppConfig config,
         ITokenStore tokenStorage,
         ILogger logger,
         string? code,
-        string? code_verifier) {
+        string? code_verifier,
+        string? client_id,
+        string? redirect_uri,
+        string? resource) {
         if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(code_verifier)) {
             return Results.BadRequest(new {
                 error = "invalid_request", error_description = "Missing code or code_verifier"
+            });
+        }
+
+        if (!OAuthResourceValidation.IsValid(config, resource)) {
+            return Results.BadRequest(new {
+                error = "invalid_target",
+                error_description = "Requested resource is not supported by this authorization server"
             });
         }
 
@@ -56,6 +76,37 @@ internal static class TokenExchangeEndpoint {
                 SecretRedactor.Hint(code));
             return Results.BadRequest(new {
                 error = "invalid_grant", error_description = "Code expired or unknown"
+            });
+        }
+
+        if (!string.IsNullOrEmpty(completed.ClientId)) {
+            if (string.IsNullOrEmpty(client_id) ||
+                !string.Equals(client_id, completed.ClientId, StringComparison.Ordinal)) {
+                logger.LogWarning("Token rejected — client_id mismatch | codeHint={CodeHint}",
+                    SecretRedactor.Hint(code));
+                return Results.BadRequest(new {
+                    error = "invalid_grant", error_description = "client_id mismatch"
+                });
+            }
+        }
+
+        if (!string.IsNullOrEmpty(completed.ClientRedirectUri) && !string.IsNullOrEmpty(redirect_uri) &&
+            !string.Equals(redirect_uri, completed.ClientRedirectUri, StringComparison.Ordinal)) {
+            logger.LogWarning("Token rejected — redirect_uri mismatch | codeHint={CodeHint}",
+                SecretRedactor.Hint(code));
+            return Results.BadRequest(new {
+                error = "invalid_grant", error_description = "redirect_uri mismatch"
+            });
+        }
+
+        var boundResource = completed.Resource ?? OAuthResourceValidation.ExpectedResource(config);
+        if (!string.IsNullOrEmpty(resource) &&
+            !string.Equals(
+                OAuthResourceValidation.NormalizeResourceUri(resource),
+                OAuthResourceValidation.NormalizeResourceUri(boundResource),
+                StringComparison.OrdinalIgnoreCase)) {
+            return Results.BadRequest(new {
+                error = "invalid_grant", error_description = "resource mismatch"
             });
         }
 
@@ -76,19 +127,29 @@ internal static class TokenExchangeEndpoint {
             access_token = mcpToken,
             token_type = "Bearer",
             expires_in = completed.ExpiresIn,
-            refresh_token = mcpRefresh
+            refresh_token = mcpRefresh,
+            resource = boundResource
         });
     }
 
     private static async Task<IResult> HandleRefreshToken(
+        AppConfig config,
         ITokenStore tokenStorage,
         HaloPsaConfig haloPsaConfig,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
-        string? refresh_token) {
+        string? refresh_token,
+        string? resource) {
         if (string.IsNullOrEmpty(refresh_token)) {
             return Results.BadRequest(new {
                 error = "invalid_request", error_description = "Missing refresh_token"
+            });
+        }
+
+        if (!OAuthResourceValidation.IsValid(config, resource)) {
+            return Results.BadRequest(new {
+                error = "invalid_target",
+                error_description = "Requested resource is not supported by this authorization server"
             });
         }
 
@@ -152,7 +213,8 @@ internal static class TokenExchangeEndpoint {
             access_token = mcpAccessToken,
             token_type = "Bearer",
             expires_in = expiresIn,
-            refresh_token = newMcpRefresh
+            refresh_token = newMcpRefresh,
+            resource = OAuthResourceValidation.BindResource(config, resource)
         });
     }
 

@@ -1,0 +1,44 @@
+# Example Helm overlay for Claude.ai organization connector deployments.
+#
+# Usage:
+#   helm upgrade --install halopsa-mcp helm/halopsa-mcp \
+#     -f helm/halopsa-mcp/values.yaml \
+#     -f helm/halopsa-mcp/values-claude-connector.example.yaml \
+#     --set halopsa.url=https://your-tenant.halopsa.com \
+#     --set halopsa.clientId=your-halopsa-client-id \
+#     --set halopsa.authBaseUrl=https://halopsa-mcp.example.com \
+#     --set halopsa.publicBaseUrl=https://halopsa-mcp.example.com \
+#     --set ingress.hosts[0].host=halopsa-mcp.example.com
+#
+# HaloPSA app registration must include:
+#   Login Redirect URL: https://halopsa-mcp.example.com/callback
+#   Authentication Method: Authorisation Code (Native Application)
+#   Allow Agent Logins: enabled
+
+replicaCount: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  cors:
+    enabled: true
+    allowOrigin: "https://claude.ai"
+  hosts:
+    - host: halopsa-mcp.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: halopsa-mcp-tls
+  #    hosts:
+  #      - halopsa-mcp.example.com
+
+cors:
+  allowedOrigins: "https://claude.ai,https://www.claude.ai"
+
+# Open DCR for MCP clients (Claude backend registers via POST /register).
+dcrInitialAccessToken: ""
+dcrAllowOpen: false
+
+networkPolicy:
+  enabled: true

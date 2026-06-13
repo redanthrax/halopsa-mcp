@@ -86,6 +86,9 @@ internal static class CallbackEndpoint {
                 RefreshToken = tokenData.refresh_token ?? string.Empty,
                 ExpiresIn = expiresIn,
                 ClientCodeChallenge = pending.ClientCodeChallenge,
+                ClientId = pending.ClientId,
+                ClientRedirectUri = pending.ClientRedirectUri,
+                Resource = pending.Resource,
                 Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 10 * 60 * 1000
             });
 

@@ -139,7 +139,7 @@ docker run -d \
 
 > Pin to a specific semver tag from [GitHub Releases](https://github.com/redanthrax/halopsa-mcp/releases) or use `image.digest` in Kubernetes.
 
-If you expose this to the public internet, also set `MCP_DCR_INITIAL_ACCESS_TOKEN` so `/register` is gated, and front it with a TLS-terminating reverse proxy (Caddy, Traefik, nginx).
+If you expose this to the public internet, front it with a TLS-terminating reverse proxy (Caddy, Traefik, nginx). For Claude.ai org connectors, leave `MCP_DCR_INITIAL_ACCESS_TOKEN` unset (or set `MCP_ALLOW_OPEN_DCR=1`) and configure `MCP_CORS_ALLOWED_ORIGINS` — see `helm/halopsa-mcp/values-claude-connector.example.yaml`.
 
 ## 3. AKS / Kubernetes (Helm)
 
@@ -172,8 +172,10 @@ For multiple replicas (HA), use a shared Redis session store:
 
 Production checklist:
 - [ ] TLS terminated by ingress (cert-manager or Azure Application Gateway)
-- [ ] `networkPolicy.enabled=true`
-- [ ] `dcrInitialAccessToken` set (rotate on schedule)
+- [ ] `networkPolicy.enabled=true` (adjust ingress namespace if not using ingress-nginx)
+- [ ] `AUTH_BASE_URL` / `halopsa.authBaseUrl` matches public connector URL
+- [ ] HaloPSA Login Redirect URL includes `https://<host>/callback`
+- [ ] Claude connector: open DCR + CORS (`values-claude-connector.example.yaml`)
 - [ ] `image.digest` set to `sha256:...` (preferred) or `image.tag` pinned to a SemVer — not `latest`
 - [ ] Image pulled from your private ACR (mirror from Docker Hub)
 - [ ] DataProtection keys backed by Azure Key Vault (see Limitations)

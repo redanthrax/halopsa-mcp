@@ -15,4 +15,6 @@ public class PendingAuth : IExpiring {
     public bool IsDirectLogin { get; init; }
     /// <summary>OAuth client_id of the requesting MCP client (DCR-issued).</summary>
     public string? ClientId { get; init; }
+    /// <summary>RFC 8707 resource indicator bound at authorize time.</summary>
+    public string? Resource { get; init; }
 }

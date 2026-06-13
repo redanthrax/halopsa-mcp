@@ -9,7 +9,7 @@ namespace HaloPsaMcp.Modules.HaloPsa.Middleware;
 /// <summary>
 /// Wolverine middleware that supplements MCP-level tool_audit with handler-level records.
 /// </summary>
-internal static class ToolAuditMiddleware {
+public static class ToolAuditMiddleware {
     public static async Task BeforeAsync(
         Envelope envelope,
         IHttpContextAccessor? httpAccessor,
@@ -25,7 +25,7 @@ internal static class ToolAuditMiddleware {
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    public static void AfterAsync(
+    public static void After(
         Envelope envelope,
         IHttpContextAccessor? httpAccessor,
         ITokenStore tokenStore,

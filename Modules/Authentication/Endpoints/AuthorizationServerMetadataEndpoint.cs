@@ -14,12 +14,13 @@ internal static class AuthorizationServerMetadataEndpoint
 
     private static IResult AuthorizationServerMetadata(AppConfig config)
     {
+        var authBaseUrl = AppConfigRuntime.ResolveAuthBaseUrl(config);
         return Results.Ok(new
         {
-            issuer = config.AuthBaseUrl,
-            authorization_endpoint = $"{config.AuthBaseUrl}/authorize",
-            token_endpoint = $"{config.AuthBaseUrl}/token",
-            registration_endpoint = $"{config.AuthBaseUrl}/register",
+            issuer = authBaseUrl,
+            authorization_endpoint = $"{authBaseUrl}/authorize",
+            token_endpoint = $"{authBaseUrl}/token",
+            registration_endpoint = $"{authBaseUrl}/register",
             response_types_supported = new[] { "code" },
             grant_types_supported = new[] { "authorization_code" },
             code_challenge_methods_supported = new[] { "S256" },

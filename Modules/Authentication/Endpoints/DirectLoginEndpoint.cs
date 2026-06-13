@@ -31,7 +31,7 @@ internal static class DirectLoginEndpoint
         OAuthStateManager.PendingAuths[state] = new PendingAuth
         {
             HaloPsaVerifier = verifier,
-            ClientRedirectUri = $"{config.AuthBaseUrl}/success",
+            ClientRedirectUri = $"{AppConfigRuntime.ResolveAuthBaseUrl(config)}/success",
             ClientState = null,
             ClientCodeChallenge = challenge,
             ClientCode = string.Empty,
@@ -43,7 +43,7 @@ internal static class DirectLoginEndpoint
             haloPsaConfig.Url,
             haloPsaConfig.ClientId,
             haloPsaConfig.GetTenant(),
-            $"{config.AuthBaseUrl}/callback",
+            AppConfigRuntime.OAuthCallbackUrl(config),
             state,
             challenge
         );

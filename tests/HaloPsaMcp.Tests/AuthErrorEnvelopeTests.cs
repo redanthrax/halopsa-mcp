@@ -50,4 +50,18 @@ public class AuthErrorEnvelopeTests {
         Assert.DoesNotContain("verbatim", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("EXACTLY", message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void OAuthCallbackUrl_matches_login_base_when_port_fallback_active() {
+        AppConfigRuntime.EffectivePublicBaseUrl = "http://localhost:61596";
+        AppConfigRuntime.PortFallbackActive = true;
+        try {
+            var config = MakeConfig();
+            Assert.Equal("http://localhost:61596/login", HaloPsaMcpConstants.GetLoginUrl(config));
+            Assert.Equal("http://localhost:61596/callback", AppConfigRuntime.OAuthCallbackUrl(config));
+        } finally {
+            AppConfigRuntime.EffectivePublicBaseUrl = null;
+            AppConfigRuntime.PortFallbackActive = false;
+        }
+    }
 }

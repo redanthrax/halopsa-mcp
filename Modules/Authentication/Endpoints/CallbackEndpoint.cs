@@ -45,7 +45,7 @@ internal static class CallbackEndpoint {
         var parameters = new Dictionary<string, string> {
             ["grant_type"] = "authorization_code",
             ["client_id"] = haloPsaConfig.ClientId,
-            ["redirect_uri"] = $"{config.AuthBaseUrl}/callback",
+            ["redirect_uri"] = AppConfigRuntime.OAuthCallbackUrl(config),
             ["code"] = code,
             ["code_verifier"] = pending.HaloPsaVerifier,
             ["scope"] = "all offline_access"

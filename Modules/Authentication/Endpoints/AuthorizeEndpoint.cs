@@ -102,7 +102,7 @@ internal static class AuthorizeEndpoint {
             haloPsaConfig.Url,
             haloPsaConfig.ClientId,
             haloPsaConfig.GetTenant(),
-            $"{config.AuthBaseUrl}/callback",
+            AppConfigRuntime.OAuthCallbackUrl(config),
             oauthState,
             haloPsaChallenge);
 

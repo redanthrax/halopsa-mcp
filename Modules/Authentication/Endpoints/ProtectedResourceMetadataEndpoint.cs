@@ -23,10 +23,11 @@ internal static class ProtectedResourceMetadataEndpoint
 
     private static IResult ProtectedResourceMetadata(AppConfig config)
     {
+        var authBaseUrl = AppConfigRuntime.ResolveAuthBaseUrl(config);
         return Results.Ok(new
         {
-            resource = config.AuthBaseUrl,
-            authorization_servers = new[] { config.AuthBaseUrl },
+            resource = authBaseUrl,
+            authorization_servers = new[] { authBaseUrl },
             bearer_methods_supported = new[] { "header" },
             resource_name = "HaloPSA MCP"
         });

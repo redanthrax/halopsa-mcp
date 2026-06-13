@@ -72,7 +72,7 @@ internal class McpAuthenticationMiddleware {
     private static async Task Reject401(HttpContext context, AppConfig appConfig, string err, string desc) {
         context.Response.StatusCode = 401;
         context.Response.Headers.Append("WWW-Authenticate",
-            $"Bearer resource_metadata=\"{appConfig.AuthBaseUrl.TrimEnd('/')}/.well-known/oauth-protected-resource\"");
+            $"Bearer resource_metadata=\"{AppConfigRuntime.ResolveAuthBaseUrl(appConfig)}/.well-known/oauth-protected-resource\"");
         await context.Response.WriteAsJsonAsync(
             new { error = err, error_description = desc }).ConfigureAwait(false);
     }

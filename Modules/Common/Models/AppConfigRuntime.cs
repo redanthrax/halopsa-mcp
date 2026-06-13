@@ -16,4 +16,10 @@ public static class AppConfigRuntime {
         var url = EffectivePublicBaseUrl ?? config.PublicBaseUrl;
         return url.TrimEnd('/');
     }
+
+    /// <summary>OAuth issuer and callback base URL (matches the listening port in stdio mode).</summary>
+    public static string ResolveAuthBaseUrl(AppConfig config) => ResolvePublicBaseUrl(config);
+
+    public static string OAuthCallbackUrl(AppConfig config) =>
+        $"{ResolveAuthBaseUrl(config)}/callback";
 }

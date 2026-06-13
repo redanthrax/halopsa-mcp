@@ -118,7 +118,7 @@ jobs:
           dotnet CycloneDX ./HaloPsaMcp.csproj -o sbom -f cyclonedx.json
 
       - name: Upload CycloneDX SBOM
-        uses: actions/upload-artifact@b7cec1dce467eaae057245785ca09c5e9a2da90c # v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cyclonedx-sbom-${{ github.ref_name }}
           path: sbom/cyclonedx.json

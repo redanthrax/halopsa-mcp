@@ -52,6 +52,9 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Stateful MCP only (MCP_HTTP_STATELESS=0): hash by session header so tools/call
+    # reaches the pod that handled initialize. Not needed when stateless (default with redis).
+    # nginx.ingress.kubernetes.io/upstream-hash-by: "$http_mcp_session_id"
   # Optional nginx ingress CORS (belt-and-suspenders; app handles CORS by default).
   cors:
     enabled: false
@@ -164,6 +167,13 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
+
+# MCP Streamable HTTP transport (SDK ModelContextProtocol.AspNetCore).
+# Stateless mode (default when tokenStore.backend=redis) avoids Mcp-Session-Id
+# pod affinity — required for Claude.ai and other server-to-server callers.
+mcp:
+  # "" = auto (stateless when redis). "1" = force stateless. "0" = stateful (needs session affinity).
+  httpStateless: ""
 
 # CORS for browser MCP clients (Claude.ai org connectors). Comma-separated origins.
 cors:

@@ -8,6 +8,7 @@
 #     --set halopsa.clientId=your-halopsa-client-id \
 #     --set halopsa.authBaseUrl=https://halopsa-mcp.example.com \
 #     --set halopsa.publicBaseUrl=https://halopsa-mcp.example.com \
+#     --set halopsa.redis.connection='host:6379,password=...,ssl=true' \
 #     --set ingress.hosts[0].host=halopsa-mcp.example.com
 #
 # HaloPSA app registration must include:
@@ -15,7 +16,18 @@
 #   Authentication Method: Authorisation Code (Native Application)
 #   Allow Agent Logins: enabled
 
-replicaCount: 1
+replicaCount: 2
+
+halopsa:
+  tokenStore:
+    backend: redis
+  redis:
+    connection: ""  # set via --set or existingSecret
+
+# Stateless Streamable HTTP — each POST /mcp is independent (no Mcp-Session-Id pod stickiness).
+# Auto-enabled when backend=redis; set explicitly for clarity.
+mcp:
+  httpStateless: "1"
 
 ingress:
   enabled: true
@@ -42,3 +54,7 @@ dcrAllowOpen: false
 
 networkPolicy:
   enabled: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

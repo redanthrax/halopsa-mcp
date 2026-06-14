@@ -223,6 +223,8 @@ Production checklist:
 | `MCP_ENABLED_TOOLS` | _(all tools)_ | Comma-separated allowlist, e.g. `halopsa_query,halopsa_list_tickets,halopsa_list_agents` |
 | `MCP_METRICS_ENABLED` | `0` | Set `1` to expose gated `/metrics` (Prometheus text format) |
 | `MCP_METRICS_TOKEN` | _(unset)_ | Optional bearer token required for `/metrics` |
+| `MCP_HTTP_STATELESS` | auto | `1`/`0`/`auto` — stateless Streamable HTTP (no `Mcp-Session-Id` affinity). **Auto: enabled when `HALOPSA_TOKEN_STORE_BACKEND=redis`.** Required for multi-replica + server-to-server MCP callers (Claude.ai org connector). |
+| `MCP_HTTP_IDLE_TIMEOUT_MINUTES` | `120` | Stateful mode only: idle session TTL before 404 |
 | `HALOPSA_DPKEY_DIR` | `./data/dp-keys` | DataProtection key ring |
 | `HTTP_PORT` | `3000` | Listener port |
 | `AUTH_BASE_URL` | `http://localhost:3000` | External base URL — used in OAuth callbacks and `WWW-Authenticate` |
@@ -262,6 +264,7 @@ Production checklist:
 ## Limitations
 
 - **File backend is best-effort multi-replica.** Default `HALOPSA_TOKEN_STORE_BACKEND=file` uses a local encrypted JSON file + RWO PVC with FileSystemWatcher reload. OAuth flow state and DCR registrations follow the same pattern. For `replicaCount > 1`, set `halopsa.tokenStore.backend=redis` and provide `HALOPSA_REDIS_CONNECTION` (or `HALOPSA_REDIS_CONNECTION_FILE`) so sessions, OAuth state, and DCR are atomically shared.
+- **MCP Streamable HTTP sessions are process-local in the SDK** unless you enable stateless mode. With `replicaCount > 1`, set `MCP_HTTP_STATELESS=1` (auto when `backend=redis`) so each `POST /mcp` is handled independently — this matches how Claude.ai's connector backend calls tools without cookie affinity. For stateful mode (`MCP_HTTP_STATELESS=0`), use nginx `upstream-hash-by: $http_mcp_session_id` or scale to one replica.
 - **DataProtection keys on PVC.** Surviving cluster rebuilds requires backing up the PVC or wrapping with Azure Key Vault.
 - **Single HaloPSA tenant per deployment.**
 

@@ -98,6 +98,10 @@ spec:
         - name: MCP_ALLOW_OPEN_DCR
           value: "1"
         {{- end }}
+        {{- if ne (toString .Values.mcp.httpStateless) "" }}
+        - name: MCP_HTTP_STATELESS
+          value: {{ .Values.mcp.httpStateless | quote }}
+        {{- end }}
         volumeMounts:
         - name: token-storage
           mountPath: /app/data

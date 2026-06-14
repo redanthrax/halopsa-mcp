@@ -111,7 +111,7 @@ if (isHttpMode) {
     McpRuntime.HostMode = McpHostMode.Http;
 
     builder.Services.AddMcpServer()
-        .WithHttpTransport(McpServerSetup.ConfigureHttpSessionInstructions)
+        .WithHttpTransport(McpHttpTransportConfiguration.Configure)
         .WithTools<HaloPsaMcpTools>()
         .AddMcpToolPolicies();
     builder.Services.AddMcpSessionInstructions();
@@ -138,6 +138,7 @@ if (isHttpMode) {
     app.MapMcp("/mcp").DisableAntiforgery();
 
     Log.Information("HaloPSA MCP server running on http://localhost:{Port}", appConfig.HttpPort);
+    Log.Information("MCP HTTP transport | stateless={Stateless}", McpHttpTransportConfiguration.ResolveStateless());
     Log.Information("OAuth login: http://localhost:{Port}/login", appConfig.HttpPort);
     Log.Information("MCP endpoint: http://localhost:{Port}/mcp", appConfig.HttpPort);
 

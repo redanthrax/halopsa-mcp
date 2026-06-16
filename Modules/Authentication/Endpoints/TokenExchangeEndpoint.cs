@@ -1,7 +1,6 @@
-using System.Net.Http.Headers;
 using HaloPsaMcp.Modules.Authentication.Models;
 using HaloPsaMcp.Modules.Authentication.Services;
-using HaloPsaMcp.Modules.HaloPsa.Models;
+using HaloPsaMcp.Modules.HaloPsa.Services;
 using HaloPsaMcp.Modules.Common.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,8 +24,7 @@ internal static class TokenExchangeEndpoint {
         AppConfig config,
         ITokenStore tokenStorage,
         IOAuthFlowStore flowStore,
-        HaloPsaConfig haloPsaConfig,
-        IHttpClientFactory httpClientFactory,
+        HaloPsaTokenRefresher tokenRefresher,
         ILogger<TokenMarker> logger,
         [FromForm] string? grant_type,
         [FromForm] string? code,
@@ -40,7 +38,7 @@ internal static class TokenExchangeEndpoint {
                 config, tokenStorage, flowStore, logger, code, code_verifier, client_id, redirect_uri, resource)
                 .ConfigureAwait(false),
             "refresh_token" => await HandleRefreshToken(
-                config, tokenStorage, haloPsaConfig, httpClientFactory, logger, refresh_token, resource)
+                config, tokenStorage, tokenRefresher, logger, refresh_token, resource)
                 .ConfigureAwait(false),
             _ => Results.BadRequest(new {
                 error = "unsupported_grant_type",
@@ -140,8 +138,7 @@ internal static class TokenExchangeEndpoint {
     private static async Task<IResult> HandleRefreshToken(
         AppConfig config,
         ITokenStore tokenStorage,
-        HaloPsaConfig haloPsaConfig,
-        IHttpClientFactory httpClientFactory,
+        HaloPsaTokenRefresher tokenRefresher,
         ILogger logger,
         string? refresh_token,
         string? resource) {
@@ -174,53 +171,36 @@ internal static class TokenExchangeEndpoint {
             });
         }
 
-        var tokenUrl = $"{haloPsaConfig.Url}/auth/token?tenant={Uri.EscapeDataString(haloPsaConfig.GetTenant())}";
-        var parameters = new Dictionary<string, string> {
-            ["grant_type"] = "refresh_token",
-            ["client_id"] = haloPsaConfig.ClientId,
-            ["refresh_token"] = session.RefreshToken
-        };
-        if (!string.IsNullOrEmpty(haloPsaConfig.ClientSecret)) {
-            parameters["client_secret"] = haloPsaConfig.ClientSecret;
-        }
+        try {
+            var refreshed = await tokenRefresher.RefreshSessionAsync(mcpAccessToken, session).ConfigureAwait(false);
+            var expiresIn = Math.Max(
+                1,
+                (int)((refreshed.ExpiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) / 1000) + 60);
 
-        var http = httpClientFactory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl) {
-            Content = new FormUrlEncodedContent(parameters)
-        };
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            // One-time-use rotation: the supplied refresh_token is now invalid; client
+            // must use the new value we return.
+            var newMcpRefresh = await tokenStorage.RotateRefreshTokenAsync(
+                mcpAccessToken, refreshed.AccessToken, refreshed.RefreshToken, refreshed.ExpiresAt).ConfigureAwait(false);
 
-        var response = await http.SendAsync(request).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) {
-            var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            logger.LogError("HaloPSA refresh failed | status={Status}", response.StatusCode);
-            _ = error; // body not logged: may contain PII / token fragments
+            logger.LogInformation("Refresh OK | mcp={Hint} expiresIn={Seconds}s",
+                SecretRedactor.Hint(mcpAccessToken), expiresIn);
+
+            return Results.Ok(new {
+                access_token = mcpAccessToken,
+                token_type = "Bearer",
+                expires_in = expiresIn,
+                refresh_token = newMcpRefresh,
+                resource = OAuthResourceValidation.BindResource(config, resource)
+            });
+        } catch (HttpRequestException) {
+            // EnsureFreshAsync invalidates on failure; keep an explicit revoke for safety.
+            await tokenStorage.InvalidateSessionAsync(mcpAccessToken).ConfigureAwait(false);
+            logger.LogError("HaloPSA refresh failed for MCP session | mcp={Hint}",
+                SecretRedactor.Hint(mcpAccessToken));
             return Results.BadRequest(new {
                 error = "invalid_grant", error_description = "HaloPSA rejected the refresh token"
             });
         }
-
-        var tokenData = await response.Content.ReadFromJsonAsync<TokenResponse>().ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Invalid HaloPSA token response");
-        var expiresIn = tokenData.expires_in > 0 ? tokenData.expires_in : 3600;
-        var newExpiresAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (expiresIn - 60) * 1000;
-        var newRefresh = tokenData.refresh_token ?? session.RefreshToken;
-
-        // One-time-use rotation: the supplied refresh_token is now invalid; client
-        // must use the new value we return.
-        var newMcpRefresh = await tokenStorage.RotateRefreshTokenAsync(
-            mcpAccessToken, tokenData.access_token, newRefresh, newExpiresAt).ConfigureAwait(false);
-
-        logger.LogInformation("Refresh OK | mcp={Hint} expiresIn={Seconds}s",
-            SecretRedactor.Hint(mcpAccessToken), expiresIn);
-
-        return Results.Ok(new {
-            access_token = mcpAccessToken,
-            token_type = "Bearer",
-            expires_in = expiresIn,
-            refresh_token = newMcpRefresh,
-            resource = OAuthResourceValidation.BindResource(config, resource)
-        });
     }
 
     internal sealed class TokenMarker { }

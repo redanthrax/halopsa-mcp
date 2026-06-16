@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using HaloPsaMcp.Modules.Authentication.Services;
 using HaloPsaMcp.Modules.Common.Models;
+using HaloPsaMcp.Modules.HaloPsa.Services;
 
 namespace HaloPsaMcp.Modules.Authentication.Middleware;
 
@@ -18,7 +19,12 @@ internal class McpAuthenticationMiddleware {
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, McpAuthenticationService authService, ITokenStore tokenStorage, AppConfig appConfig) {
+    public async Task InvokeAsync(
+        HttpContext context,
+        McpAuthenticationService authService,
+        ITokenStore tokenStorage,
+        HaloPsaTokenRefresher tokenRefresher,
+        AppConfig appConfig) {
         // CORS preflight must not require auth (handled by UseCors; pass through if reached here).
         if (HttpMethods.IsOptions(context.Request.Method)) {
             await _next(context).ConfigureAwait(false);
@@ -64,10 +70,40 @@ internal class McpAuthenticationMiddleware {
         var expiresIn = TimeSpan.FromMilliseconds(
             entry.ExpiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
-        _logger.LogInformation(
-            "Auth OK | mcp={Hint} expiresIn={ExpiresIn}m path={Path} elapsed={ElapsedMs}ms",
-            hint, (int)expiresIn.TotalMinutes,
-            context.Request.Path, sw.ElapsedMilliseconds);
+        if (expiresIn.TotalMinutes < 0) {
+            _logger.LogWarning(
+                "Auth OK but HaloPSA access expired | mcp={Hint} expiresIn={ExpiresIn}m path={Path}",
+                hint, (int)expiresIn.TotalMinutes, context.Request.Path);
+        } else {
+            _logger.LogInformation(
+                "Auth OK | mcp={Hint} expiresIn={ExpiresIn}m path={Path} elapsed={ElapsedMs}ms",
+                hint, (int)expiresIn.TotalMinutes,
+                context.Request.Path, sw.ElapsedMilliseconds);
+        }
+
+        if (HaloPsaTokenRefresher.NeedsRefresh(entry.ExpiresAt) &&
+            !string.IsNullOrWhiteSpace(entry.RefreshToken)) {
+            try {
+                await tokenRefresher.EnsureFreshAsync(
+                    token,
+                    token,
+                    entry.AccessToken,
+                    entry.RefreshToken,
+                    entry.ExpiresAt,
+                    onRefreshed: null,
+                    context.RequestAborted).ConfigureAwait(false);
+                entry = tokenStorage.GetToken(token) ?? entry;
+            } catch (HttpRequestException ex) when (HaloPsaResponseSanitizer.IsTokenRefreshFailure(ex)) {
+                sw.Stop();
+                _logger.LogWarning(
+                    "Auth rejected — HaloPSA refresh failed | mcp={Hint} path={Path} elapsed={ElapsedMs}ms",
+                    hint, context.Request.Path, sw.ElapsedMilliseconds);
+                await Reject401(
+                    context, appConfig, "invalid_token",
+                    "HaloPSA session expired — sign in again").ConfigureAwait(false);
+                return;
+            }
+        }
 
         authService.StoreSessionInContext(
             context, token, entry.AccessToken, entry.RefreshToken, entry.ExpiresAt);

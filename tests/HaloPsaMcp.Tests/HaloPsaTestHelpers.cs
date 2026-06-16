@@ -61,11 +61,18 @@ internal static class HaloPsaTestHelpers {
                 ClientId = config.HaloPsa.ClientId
             };
 
+            var refresher = new HaloPsaTokenRefresher(
+                baseConfig,
+                tokenStorage,
+                new SingleHttpClientFactory(httpClient),
+                NullLogger<HaloPsaTokenRefresher>.Instance);
+
             var factory = new HaloPsaClientFactory(
                 baseConfig,
                 new McpAuthenticationService(tokenStorage, NullLogger<McpAuthenticationService>.Instance),
                 tokenStorage,
                 new SingleHttpClientFactory(httpClient),
+                refresher,
                 NullLogger<HaloPsaClientFactory>.Instance);
 
             return new Fixture(tempDir, tokenStorage, handler, factory);

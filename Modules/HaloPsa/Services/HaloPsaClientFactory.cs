@@ -16,6 +16,7 @@ public class HaloPsaClientFactory {
     private readonly McpAuthenticationService _authService;
     private readonly ITokenStore _tokenStorage;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HaloPsaTokenRefresher _tokenRefresher;
     private readonly ILogger<HaloPsaClientFactory> _logger;
 
     public HaloPsaClientFactory(
@@ -23,11 +24,13 @@ public class HaloPsaClientFactory {
         McpAuthenticationService authService,
         ITokenStore tokenStorage,
         IHttpClientFactory httpClientFactory,
+        HaloPsaTokenRefresher tokenRefresher,
         ILogger<HaloPsaClientFactory> logger) {
         _baseConfig = baseConfig;
         _authService = authService;
         _tokenStorage = tokenStorage;
         _httpClientFactory = httpClientFactory;
+        _tokenRefresher = tokenRefresher;
         _logger = logger;
     }
 
@@ -88,14 +91,15 @@ public class HaloPsaClientFactory {
                 if (capturedContext != null) {
                     _authService.StoreTokenInContext(capturedContext, newToken, newRefreshToken, newExpiresAt);
                 }
-                if (!string.IsNullOrEmpty(capturedMcpToken)) {
-                    _ = _tokenStorage.UpdateSessionTokensAsync(
-                        capturedMcpToken, newToken, newRefreshToken, newExpiresAt);
-                }
             }
         };
 
-        return new HaloPsaClient(userConfig, _httpClientFactory.CreateClient(HttpClientName));
+        return new HaloPsaClient(
+            userConfig,
+            _httpClientFactory.CreateClient(HttpClientName),
+            _tokenRefresher,
+            sessionLockKey: capturedMcpToken,
+            mcpSessionToken: capturedMcpToken);
     }
 
     /// <summary>

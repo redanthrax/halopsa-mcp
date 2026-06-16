@@ -74,7 +74,16 @@ internal static class CallbackEndpoint {
             var expiresAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (expiresIn - 60) * 1000;
 
             if (pending.IsDirectLogin) {
-                // Direct browser login — create MCP session immediately
+                // Direct browser login — replace the prior default session so stale MCP
+                // bearer tokens stop working after the user re-authenticates in the browser.
+                var prior = tokenStorage.GetDefaultSession();
+                if (prior is not null) {
+                    await tokenStorage.InvalidateSessionAsync(prior.Value.Key).ConfigureAwait(false);
+                    logger.LogInformation(
+                        "Direct login replaced prior session | prior={Hint}",
+                        SecretRedactor.Hint(prior.Value.Key));
+                }
+
                 var (mcp, _) = await tokenStorage.CreateSessionAsync(
                     tokenData.access_token, tokenData.refresh_token, expiresAt).ConfigureAwait(false);
                 logger.LogInformation("Direct login OK | mcpToken={Hint}", SecretRedactor.Hint(mcp));

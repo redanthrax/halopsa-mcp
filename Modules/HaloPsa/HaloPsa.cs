@@ -1,6 +1,7 @@
 using HaloPsaMcp.Modules.Common.Models;
 using HaloPsaMcp.Modules.HaloPsa.Models;
 using HaloPsaMcp.Modules.HaloPsa.Services;
+using HaloPsaMcp.Modules.Authentication.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,12 @@ internal class HaloPsaModuleRegistrar : IModuleRegistrar {
         });
 
         services.AddHttpClient("halopsa", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddSingleton<HaloPsaTokenRefresher>(sp => new HaloPsaTokenRefresher(
+            sp.GetRequiredService<HaloPsaConfig>(),
+            sp.GetRequiredService<ITokenStore>(),
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<ILogger<HaloPsaTokenRefresher>>(),
+            sp.GetService<StackExchange.Redis.IConnectionMultiplexer>()));
         services.AddScoped<HaloPsaClientFactory>();
         services.AddSingleton<SchemaCatalogService>();
     }

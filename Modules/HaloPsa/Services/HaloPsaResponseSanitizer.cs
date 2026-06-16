@@ -15,6 +15,10 @@ internal static class HaloPsaResponseSanitizer {
     internal static HttpRequestException ApiException(string operation, HttpStatusCode status) =>
         new(SafeFailureMessage(operation, status));
 
+    internal static bool IsTokenRefreshFailure(Exception ex) =>
+        ex is HttpRequestException { Message: var message } &&
+        message.StartsWith("Token refresh failed", StringComparison.Ordinal);
+
     internal static void LogFailure(
         ILogger? logger,
         string operation,

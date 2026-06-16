@@ -170,6 +170,8 @@ internal partial class HaloPsaMcpTools {
             return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         } catch (TaskCanceledException) {
             return HaloPsaMcpConstants.QueryTimeoutMessage;
+        } catch (HttpRequestException ex) when (HaloPsaResponseSanitizer.IsTokenRefreshFailure(ex)) {
+            return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
         } catch (Exception ex) {
             var hint = HaloPsaMcpConstants.BuildColumnHint(ex.Message, sql, catalog);
             return string.Format(CultureInfo.InvariantCulture, HaloPsaMcpConstants.QueryFailedTemplate, ex.Message)

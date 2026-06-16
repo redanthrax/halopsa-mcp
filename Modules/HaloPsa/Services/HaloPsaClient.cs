@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using HaloPsaMcp.Modules.Authentication.Models;
 using HaloPsaMcp.Modules.HaloPsa.Models;
 
 namespace HaloPsaMcp.Modules.HaloPsa.Services;
@@ -11,11 +10,23 @@ namespace HaloPsaMcp.Modules.HaloPsa.Services;
 public class HaloPsaClient {
     private readonly HaloPsaConfig _config;
     private readonly HttpClient _httpClient;
+    private readonly HaloPsaTokenRefresher _tokenRefresher;
+    private readonly string? _sessionLockKey;
+    private readonly string? _mcpSessionToken;
     private readonly ILogger<HaloPsaClient>? _logger;
 
-    public HaloPsaClient(HaloPsaConfig config, HttpClient httpClient, ILogger<HaloPsaClient>? logger = null) {
+    public HaloPsaClient(
+        HaloPsaConfig config,
+        HttpClient httpClient,
+        HaloPsaTokenRefresher tokenRefresher,
+        string? sessionLockKey = null,
+        string? mcpSessionToken = null,
+        ILogger<HaloPsaClient>? logger = null) {
         _config = config;
         _httpClient = httpClient;
+        _tokenRefresher = tokenRefresher;
+        _sessionLockKey = sessionLockKey;
+        _mcpSessionToken = mcpSessionToken;
         _logger = logger;
     }
 
@@ -26,56 +37,20 @@ public class HaloPsaClient {
         }
         if (!string.IsNullOrEmpty(_config.DirectRefreshToken) &&
             _config.DirectTokenExpiresAt.HasValue &&
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() >= _config.DirectTokenExpiresAt.Value - 60_000) {
-            await RefreshDirectTokenAsync().ConfigureAwait(false);
+            HaloPsaTokenRefresher.NeedsRefresh(_config.DirectTokenExpiresAt.Value)) {
+            var lockKey = _sessionLockKey ?? _mcpSessionToken ?? _config.DirectRefreshToken!;
+            var refreshed = await _tokenRefresher.EnsureFreshAsync(
+                lockKey,
+                _mcpSessionToken,
+                _config.DirectToken,
+                _config.DirectRefreshToken,
+                _config.DirectTokenExpiresAt.Value,
+                _config.OnTokenRefreshed).ConfigureAwait(false);
+            _config.DirectToken = refreshed.AccessToken;
+            _config.DirectRefreshToken = refreshed.RefreshToken;
+            _config.DirectTokenExpiresAt = refreshed.ExpiresAt;
         }
         return _config.DirectToken;
-    }
-
-    private async Task RefreshDirectTokenAsync() {
-        _logger?.LogInformation("Refreshing expired token");
-        var tokenUrl = $"{_config.Url}/auth/token?tenant={Uri.EscapeDataString(_config.GetTenant())}";
-        var parameters = new Dictionary<string, string> {
-            ["grant_type"] = "refresh_token",
-            ["client_id"] = _config.ClientId,
-            ["refresh_token"] = _config.DirectRefreshToken!
-        };
-
-        if (!string.IsNullOrEmpty(_config.ClientSecret)) {
-            parameters["client_secret"] = _config.ClientSecret;
-        }
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl) {
-            Content = new FormUrlEncodedContent(parameters)
-        };
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-        var sw = Stopwatch.StartNew();
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-        sw.Stop();
-
-        if (!response.IsSuccessStatusCode) {
-            var errorBytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-            HaloPsaResponseSanitizer.LogFailure(
-                _logger, "token refresh", response.StatusCode, errorBytes.Length, sw.ElapsedMilliseconds);
-            throw HaloPsaResponseSanitizer.ApiException("Token refresh", response.StatusCode);
-        }
-
-        _logger?.LogInformation("Token refresh succeeded | elapsed={ElapsedMs}ms", sw.ElapsedMilliseconds);
-
-        var tokenResponse = await JsonSerializer.DeserializeAsync<TokenResponse>(
-            await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Invalid token response");
-
-        var expiresAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (tokenResponse.expires_in - 60) * 1000;
-        _config.DirectToken = tokenResponse.access_token;
-        _config.DirectRefreshToken = tokenResponse.refresh_token ?? _config.DirectRefreshToken;
-        _config.DirectTokenExpiresAt = expiresAt;
-        _config.OnTokenRefreshed?.Invoke(
-            _config.DirectToken,
-            _config.DirectRefreshToken!,
-            expiresAt
-        );
     }
 
     /// <summary>

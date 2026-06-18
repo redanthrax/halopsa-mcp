@@ -79,24 +79,24 @@
       },
       "WolverineFx": {
         "type": "Direct",
-        "requested": "[6.7.0, )",
-        "resolved": "6.7.0",
-        "contentHash": "sBSlzRrHOBz8o3fI7YGD7TH/hmyRn3Bg/uTl0P2wJgnXEzM+hGqmD4IZP1E/dW+bHgTgGLa1J+OeDA0itvSwzA==",
+        "requested": "[6.12.0, )",
+        "resolved": "6.12.0",
+        "contentHash": "6uJqmZMadnLYQu4BdYae0YSE1cBcJPJxDKfkt5ut8RFHOw9H4EuD7+vB5sEAOEKkTCA7kc23LZoXSyZMDJTCkQ==",
         "dependencies": {
-          "JasperFx": "2.8.2",
-          "JasperFx.Events": "2.8.2",
-          "JasperFx.SourceGenerator": "2.8.2",
+          "JasperFx": "2.13.0",
+          "JasperFx.Events": "2.13.0",
+          "JasperFx.SourceGenerator": "2.13.0",
           "NewId": "4.0.1"
         }
       },
       "WolverineFx.RuntimeCompilation": {
         "type": "Direct",
-        "requested": "[6.7.0, )",
-        "resolved": "6.7.0",
-        "contentHash": "GpMmPK76Vu8ffEk+91BvmPOMlveIStBLDc9Q7XKphjKsGMyOhEz0IohlGr+CjEXMG19uF76GErutUce8hZYWMg==",
+        "requested": "[6.12.0, )",
+        "resolved": "6.12.0",
+        "contentHash": "RlcdlTKh9C+8/oJNqgae+u+eFQynfyHFJRozq5k6fJxjQLQHuUSBUk18iabgPRu4ulD2U8K6djmTvWKqU2i2HA==",
         "dependencies": {
           "JasperFx.RuntimeCompiler": "5.0.0",
-          "WolverineFx": "6.7.0"
+          "WolverineFx": "6.12.0"
         }
       },
       "FastExpressionCompiler": {
@@ -116,8 +116,8 @@
       },
       "JasperFx": {
         "type": "Transitive",
-        "resolved": "2.8.2",
-        "contentHash": "I2ZBXWSr+neozZsqew+hCWCD6EECGZ8hKtak/UaKmXZeZ3NABA2xya3E9+8YVfHJgnqGDvEAy2HUphAN9n0JZg==",
+        "resolved": "2.13.0",
+        "contentHash": "uxG0vg1BER3Sq+p26JyIK0H/3lIZgApcYltajYkWzQqIyOeIkXM/EgTOTI1HEYzTfGsYWpuoiyMHcn8ZfJfhOQ==",
         "dependencies": {
           "FastExpressionCompiler": "5.4.1",
           "ImTools": "4.0.0",
@@ -128,10 +128,10 @@
       },
       "JasperFx.Events": {
         "type": "Transitive",
-        "resolved": "2.8.2",
-        "contentHash": "ZuoBHU9rWf92WyeKDETjLCaO8lLlNdkNFD2RHqqWlMrY3MqZG98iagv3LZgJ7Hu4l/5kHG38s1gM/f8zZEHjIA==",
+        "resolved": "2.13.0",
+        "contentHash": "xGqaeCRo1Ie2jaOKvnGC1626+5dVnC81jwW+jEtUFDg0zFxUw9Gh899Xwa8ZTm2rnxv0tntHGdMxLTseLK9c/w==",
         "dependencies": {
-          "JasperFx": "2.8.2"
+          "JasperFx": "2.13.0"
         }
       },
       "JasperFx.RuntimeCompiler": {
@@ -147,8 +147,8 @@
       },
       "JasperFx.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "2.8.2",
-        "contentHash": "bkpLFc8FPGGNfsAC5+wVI3NXPzkCpR+vf7GDnOl+kE/Qa+SyiunoiWlsUXzm50s8udDpYEhy3bPREI3OuKqGhw=="
+        "resolved": "2.13.0",
+        "contentHash": "8ZXOEwsQpaXojIHxPEyaSwVlPnXiYuK+gUl2F/y1mXsvQ4aucydKReDoIcspZPxfiQ/UDMgq2jYmNz+pDfjaoA=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",

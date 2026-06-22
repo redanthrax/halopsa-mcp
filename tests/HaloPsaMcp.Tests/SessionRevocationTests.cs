@@ -8,6 +8,7 @@ using Xunit;
 
 namespace HaloPsaMcp.Tests;
 
+[Collection("TokenStoreRuntime")]
 public class SessionRevocationTests {
     [Fact]
     public async Task FileTokenStore_InvalidateSessionAsync_removes_session() {

@@ -9,6 +9,7 @@ using Xunit;
 
 namespace HaloPsaMcp.Tests;
 
+[Collection("TokenStoreRuntime")]
 public class ListTicketsQueryHandlerTests {
     [Fact]
     public async Task Builds_query_string_from_filters() {
@@ -42,17 +43,13 @@ public class ListTicketsQueryHandlerTests {
 
     [Fact]
     public async Task Throws_when_no_authenticated_session() {
-        TokenStoreRuntime.DisableDefaultFallback = true;
-        try {
-            await using var fixture = await HaloPsaTestHelpers.Fixture.CreateAsync(new StubHttpHandler());
+        using var _ = TokenStoreRuntimeTestReset.Scope.WithDefaultFallbackDisabled();
+        await using var fixture = await HaloPsaTestHelpers.Fixture.CreateAsync(new StubHttpHandler());
 
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-                ListTicketsQueryHandler.Handle(
-                    new ListTicketsQuery(),
-                    fixture.Factory,
-                    fixture.ContextAccessor));
-        } finally {
-            TokenStoreRuntime.DisableDefaultFallback = false;
-        }
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            ListTicketsQueryHandler.Handle(
+                new ListTicketsQuery(),
+                fixture.Factory,
+                fixture.ContextAccessor));
     }
 }

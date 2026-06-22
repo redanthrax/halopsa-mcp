@@ -8,6 +8,7 @@ using Xunit;
 
 namespace HaloPsaMcp.Tests;
 
+[Collection("TokenStoreRuntime")]
 public class SessionRetentionTests {
     private static FileTokenStore CreateStore(string path) {
         var config = new AppConfig {

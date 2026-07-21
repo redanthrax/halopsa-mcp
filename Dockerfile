@@ -1,6 +1,6 @@
 # Build stage
-# Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/sdk:10.0
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:c0790639332692a0d56cdd81ed581cfd24d040d9839764c138994866df89a3b6 AS builder
+# Pin SDK patch to match global.json (10.0.301) so dotnet publish resolves reliably in CI.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS builder
 
 WORKDIR /app
 

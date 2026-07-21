@@ -50,7 +50,9 @@ cors:
 
 # Open DCR for MCP clients (Claude backend registers via POST /register).
 dcrInitialAccessToken: ""
-dcrAllowOpen: false
+dcrAllowOpen: true
+# Restrict DCR redirect URIs to known Claude callbacks (operators can override).
+dcrAllowedRedirectUris: "https://claude.ai/api/mcp/auth_callback,https://www.claude.ai/api/mcp/auth_callback"
 
 networkPolicy:
   enabled: true

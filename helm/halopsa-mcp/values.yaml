@@ -184,6 +184,10 @@ cors:
 # dcrAllowOpen is true (required for Claude.ai org connectors and other MCP clients
 # that perform unauthenticated DCR).
 dcrInitialAccessToken: ""
+# Optional redirect URI allowlist for /register (DCR), comma-separated absolute URIs.
+# When set, every redirect_uri in registration must match one listed URI after
+# normalization (lowercase host, default port stripped, trailing slash removed).
+dcrAllowedRedirectUris: ""
 # When true, sets MCP_ALLOW_OPEN_DCR=1 so /register accepts unauthenticated DCR
 # even if dcrInitialAccessToken is set.
 dcrAllowOpen: false

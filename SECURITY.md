@@ -39,6 +39,7 @@ When reviewing or reporting issues, pay particular attention to:
 ## Safe deployment reminders
 
 - **HTTP mode (`--http`) requires `MCP_DCR_INITIAL_ACCESS_TOKEN`** — startup fails without it unless `MCP_ALLOW_OPEN_DCR=1` (local Docker only)
+- If you use open DCR (`MCP_ALLOW_OPEN_DCR=1`), set `MCP_DCR_ALLOWED_REDIRECT_URIS` to restrict permitted callback domains
 - Desktop stdio binds OAuth to **127.0.0.1** by default; set `HTTP_BIND_ALL=1` only if you understand the LAN exposure risk
 - Set `TRUSTED_PROXY_CIDRS` behind ingress (defaults to RFC1918 private ranges); use `none` to disable forwarded headers
 - Use `halopsa.tokenStore.backend=redis` when `replicaCount > 1`; keep Redis on a private network with TLS; store Redis credentials in Kubernetes Secrets

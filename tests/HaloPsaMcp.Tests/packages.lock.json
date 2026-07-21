@@ -610,8 +610,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.0",
-        "contentHash": "RLUe1U5VzdY0gZxXIFAWy8YS6ChUPpcnQkdMg5KkITaSO4YkVdK4Vvq0zsmXeqx/q5rhaIjCUgxnKH4j+6r/RA=="
+        "resolved": "3.0.7",
+        "contentHash": "uBspFEns2SIoDden0355joj34sD3xoSDKmRiyqkAA7neb9N/rPQW/JkZ98uEjd50ZilaXH9b51MxSoW2rLIq/A=="
       },
       "Serilog": {
         "type": "Transitive",
@@ -710,11 +710,11 @@
       },
       "StackExchange.Redis": {
         "type": "Transitive",
-        "resolved": "3.0.0",
-        "contentHash": "New/RKMZmVYFhkiS0eegY1YUnFlspcZUhoerUNLiA96rZxgTNhNc07go1CgIjU9JArdLXB4oB4PQvD0y350Aaw==",
+        "resolved": "3.0.7",
+        "contentHash": "zKgns9+fcwAHVXxJvWMw6m252KYC6t0/vyuUE1bVjhzoWzVnld1NyBgpskuYZ+SQ0z13Uxsn+BHuEPDSvSqwxg==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.0.0",
+          "RESPite": "3.0.7",
           "System.IO.Hashing": "10.0.5"
         }
       },
@@ -859,7 +859,7 @@
           "ModelContextProtocol.AspNetCore": "[1.4.0, )",
           "Serilog.AspNetCore": "[10.0.0, )",
           "Serilog.Sinks.Console": "[6.1.1, )",
-          "StackExchange.Redis": "[3.0.0, )",
+          "StackExchange.Redis": "[3.0.7, )",
           "WolverineFx": "[6.13.1, )",
           "WolverineFx.RuntimeCompilation": "[6.13.1, )"
         }

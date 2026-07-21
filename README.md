@@ -175,7 +175,7 @@ Production checklist:
 - [ ] `networkPolicy.enabled=true` (adjust ingress namespace if not using ingress-nginx)
 - [ ] `AUTH_BASE_URL` / `halopsa.authBaseUrl` matches public connector URL
 - [ ] HaloPSA Login Redirect URL includes `https://<host>/callback`
-- [ ] Claude connector: open DCR + CORS (`values-claude-connector.example.yaml`)
+- [ ] Claude connector: open DCR + CORS + redirect allowlist (`values-claude-connector.example.yaml`)
 - [ ] `image.digest` set to `sha256:...` (preferred) or `image.tag` pinned to a SemVer — not `latest`
 - [ ] Image pulled from your private ACR (mirror from Docker Hub)
 - [ ] DataProtection keys backed by Azure Key Vault (see Limitations)
@@ -197,6 +197,7 @@ Production checklist:
 | `networkPolicy.enabled` | `true` | Restricts ingress to the release namespace and egress to DNS / `:443` / IMDS. Set `false` only for constrained clusters. |
 | `podDisruptionBudget.enabled` | `false` | Only useful with replicaCount > 1. |
 | `dcrInitialAccessToken` | `""` | When set, gates `/register`. |
+| `dcrAllowedRedirectUris` | `""` | Optional DCR redirect URI allowlist (comma-separated absolute URIs). |
 | `halopsa.dpKeyDir` | `/app/data/dp-keys` | DataProtection keys directory. |
 | `logFormat` | `json` | Use `text` only for debugging. |
 | `readyVerbose` | `false` | Set true for trusted in-cluster scrapers only. |
@@ -232,6 +233,7 @@ Production checklist:
 | `HALOPSA_REDIRECT_URI` | `${AUTH_BASE_URL}/callback` | Override only if callback path differs |
 | `MCP_DCR_INITIAL_ACCESS_TOKEN` | _(unset)_ | Optional. When set, gates `/register` (DCR) unless `MCP_ALLOW_OPEN_DCR=1`. Advertised in authorization-server metadata. |
 | `MCP_ALLOW_OPEN_DCR` | _(unset)_ | `1` = allow unauthenticated DCR (required for Claude.ai org connectors). Rate-limited. |
+| `MCP_DCR_ALLOWED_REDIRECT_URIS` | _(unset)_ | Optional comma-separated DCR redirect URI allowlist. When set, every `/register` redirect_uri must match this list after normalization. |
 | `MCP_CORS_ALLOWED_ORIGINS` | `https://claude.ai` | Comma-separated browser origins allowed for MCP/OAuth CORS (required for Claude.ai connectors). |
 | `HTTP_BIND_ALL` | _(unset)_ | `1` = bind stdio OAuth to all interfaces (default: localhost only) |
 | `TRUSTED_PROXY_CIDRS` | RFC1918 private | Comma-separated CIDRs for `X-Forwarded-*`; `none` disables |
@@ -278,7 +280,7 @@ This server is designed for **operator-controlled deployments** where the organi
 - **The MCP server inherits HaloPSA authorization.** Tools call HaloPSA as the authenticated user. Provision a dedicated low-privilege OAuth application for shared-team or org-wide connectors rather than reusing a super-admin app.
 - **SqlGuard enforces read-only SQL by design.** `halopsa_query` accepts only `SELECT` / `WITH … SELECT` against the reporting database — no DDL, DML, comments, or multi-statement batches. Other tools use typed REST endpoints; restrict surface area with `MCP_ENABLED_TOOLS`.
 - **Secrets should use `*_FILE` mounts in production.** Prefer `HALOPSA_REDIS_CONNECTION_FILE` and `MCP_DCR_INITIAL_ACCESS_TOKEN_FILE` over plain env vars so values never appear in `/proc/<pid>/environ` or `kubectl describe`.
-- **Redirect URIs are normalized at registration** (lowercase host, default port stripped, trailing slash removed) so `/cb` and `/cb/` match consistently.
+- **Redirect URIs are normalized at registration** (lowercase host, default port stripped, trailing slash removed) so `/cb` and `/cb/` match consistently. Optionally enforce a strict callback allowlist with `MCP_DCR_ALLOWED_REDIRECT_URIS`.
 
 **Out of scope / residual risk**
 

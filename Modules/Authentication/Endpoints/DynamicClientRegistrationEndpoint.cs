@@ -70,6 +70,31 @@ internal static class DynamicClientRegistrationEndpoint {
         }
 
         redirectUris = RedirectUriNormalizer.NormalizeAll(redirectUris);
+        var redirectAllowlist = DcrRedirectUriAllowlist.Resolve();
+        if (redirectAllowlist.Enabled) {
+            if (redirectAllowlist.AllowedUris.Count == 0) {
+                logger.LogError(
+                    "DCR rejected — MCP_DCR_ALLOWED_REDIRECT_URIS configured but no valid URIs parsed (invalidEntries={InvalidEntries})",
+                    redirectAllowlist.InvalidEntryCount);
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+
+            foreach (var normalizedRedirect in redirectUris) {
+                if (redirectAllowlist.AllowedUris.Contains(normalizedRedirect)) {
+                    continue;
+                }
+
+                logger.LogWarning(
+                    "DCR rejected — redirect_uri not allowlisted | uri={RedirectUri} invalidAllowlistEntries={InvalidEntries}",
+                    normalizedRedirect,
+                    redirectAllowlist.InvalidEntryCount);
+                return Results.BadRequest(new {
+                    error = "invalid_redirect_uri",
+                    error_description =
+                        "redirect_uri is not allowed by MCP_DCR_ALLOWED_REDIRECT_URIS policy"
+                });
+            }
+        }
 
         if (!await store.TryMakeRoomAsync().ConfigureAwait(false)) {
             logger.LogWarning("DCR rejected — registration store at capacity ({Count})", store.Count);

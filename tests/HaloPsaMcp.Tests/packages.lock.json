@@ -549,8 +549,8 @@
       },
       "Microsoft.OpenApi": {
         "type": "Transitive",
-        "resolved": "2.0.0",
-        "contentHash": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw=="
+        "resolved": "2.7.5",
+        "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
       },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
@@ -855,6 +855,7 @@
         "dependencies": {
           "DotNetEnv": "[3.2.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+          "Microsoft.OpenApi": "[2.7.5, )",
           "ModelContextProtocol": "[1.4.0, )",
           "ModelContextProtocol.AspNetCore": "[1.4.0, )",
           "Serilog.AspNetCore": "[10.0.0, )",

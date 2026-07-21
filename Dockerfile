@@ -16,9 +16,9 @@ COPY . ./
 # Build and publish the application
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
-# Runtime stage — alpine cuts ~100 MB vs the default debian image
-# Digest pinned to multi-arch manifest list for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f03685b2735e0d3d25d6c60672e74b21bb6334f1402f71bae2d2cf02307163cd
+# Runtime stage — alpine cuts ~100 MB vs the default debian image.
+# Use patched runtime train to pick up .NET 10.0.10 security fixes.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10-alpine
 
 # Apply Alpine security updates (base image may lag behind apk index).
 RUN apk upgrade --no-cache

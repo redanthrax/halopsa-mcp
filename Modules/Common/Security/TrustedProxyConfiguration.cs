@@ -18,7 +18,7 @@ internal static class TrustedProxyConfiguration {
                 | ForwardedHeaders.XForwardedProto
                 | ForwardedHeaders.XForwardedHost;
 
-            options.KnownNetworks.Clear();
+            options.KnownIPNetworks.Clear();
             options.KnownProxies.Clear();
 
             var raw = Environment.GetEnvironmentVariable("TRUSTED_PROXY_CIDRS");
@@ -30,24 +30,12 @@ internal static class TrustedProxyConfiguration {
             var cidrs = string.IsNullOrWhiteSpace(raw) ? DefaultTrustedCidrs : raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             foreach (var cidr in cidrs) {
                 if (TryParseCidr(cidr, out var network)) {
-                    options.KnownNetworks.Add(network);
+                    options.KnownIPNetworks.Add(network);
                 }
             }
         });
     }
 
-    private static bool TryParseCidr(string cidr, out Microsoft.AspNetCore.HttpOverrides.IPNetwork network) {
-        network = default!;
-        var parts = cidr.Split('/', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var prefix)) {
-            return false;
-        }
-
-        if (!int.TryParse(parts[1], out var prefixLength)) {
-            return false;
-        }
-
-        network = new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, prefixLength);
-        return true;
-    }
+    private static bool TryParseCidr(string cidr, out System.Net.IPNetwork network) =>
+        System.Net.IPNetwork.TryParse(cidr, out network);
 }

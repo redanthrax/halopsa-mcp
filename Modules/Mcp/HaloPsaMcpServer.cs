@@ -40,6 +40,33 @@ internal partial class HaloPsaMcpTools {
         return JsonSerializer.Deserialize<JsonElement>(stream.ToArray());
     }
 
+    internal static JsonElement UnwrapCollectionPayload(JsonElement payload, params string[] preferredKeys) {
+        if (payload.ValueKind != JsonValueKind.Object) {
+            return payload;
+        }
+
+        foreach (var key in preferredKeys) {
+            if (payload.TryGetProperty(key, out var candidate) &&
+                (candidate.ValueKind == JsonValueKind.Array || candidate.ValueKind == JsonValueKind.Object)) {
+                return candidate;
+            }
+        }
+
+        JsonElement singleCollection = default;
+        var collectionCount = 0;
+        foreach (var prop in payload.EnumerateObject()) {
+            if (prop.Value.ValueKind == JsonValueKind.Array || prop.Value.ValueKind == JsonValueKind.Object) {
+                collectionCount++;
+                singleCollection = prop.Value;
+                if (collectionCount > 1) {
+                    break;
+                }
+            }
+        }
+
+        return collectionCount == 1 ? singleCollection : payload;
+    }
+
     private static void WriteTrimmed(Utf8JsonWriter writer, JsonElement element, HashSet<string> allowed) {
         switch (element.ValueKind) {
             case JsonValueKind.Array:
@@ -482,7 +509,8 @@ internal partial class HaloPsaMcpTools {
                 agentId != 0 ? agentId : null,
                 string.IsNullOrEmpty(search) ? null : search)).ConfigureAwait(false);
 
-            var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.TicketSummaryFields);
+            var ticketsPayload = UnwrapCollectionPayload(result.Data, "tickets", "items", "results", "data", "value");
+            var trimmed = TrimFields(ticketsPayload, HaloPsaMcpConstants.TicketSummaryFields);
             var jsonResponse = JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
             var responseSizeKB = Encoding.UTF8.GetByteCount(jsonResponse) / 1024.0;
 
@@ -505,7 +533,8 @@ internal partial class HaloPsaMcpTools {
         [Description("Ticket ID")] int id) {
         try {
             var result = await bus.InvokeAsync<GetTicketResult>(new GetTicketQuery(id)).ConfigureAwait(false);
-            var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.TicketDetailFields);
+            var ticketPayload = UnwrapCollectionPayload(result.Data, "ticket", "tickets", "item", "result", "data", "value");
+            var trimmed = TrimFields(ticketPayload, HaloPsaMcpConstants.TicketDetailFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
             return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
@@ -612,7 +641,8 @@ internal partial class HaloPsaMcpTools {
         IMessageBus bus) {
         try {
             var result = await bus.InvokeAsync<GetOutcomesResult>(new GetOutcomesQuery()).ConfigureAwait(false);
-            var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.OutcomeSummaryFields);
+            var outcomesPayload = UnwrapCollectionPayload(result.Data, "outcomes", "items", "results", "data", "value");
+            var trimmed = TrimFields(outcomesPayload, HaloPsaMcpConstants.OutcomeSummaryFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
             return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);
@@ -629,7 +659,8 @@ internal partial class HaloPsaMcpTools {
         try {
             var result = await bus.InvokeAsync<ListActionsResult>(
                 new ListActionsQuery(ticketId, Math.Min(count, 50))).ConfigureAwait(false);
-            var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.ActionSummaryFields);
+            var actionsPayload = UnwrapCollectionPayload(result.Data, "actions", "items", "results", "data", "value");
+            var trimmed = TrimFields(actionsPayload, HaloPsaMcpConstants.ActionSummaryFields);
             var jsonResponse = JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
             var responseSizeKB = Encoding.UTF8.GetByteCount(jsonResponse) / 1024.0;
 
@@ -710,7 +741,8 @@ internal partial class HaloPsaMcpTools {
         try {
             var result = await bus.InvokeAsync<ListTimesheetEventsResult>(
                 new ListTimesheetEventsQuery(startDate, endDate, agentId != 0 ? agentId : null)).ConfigureAwait(false);
-            var trimmed = TrimFields(result.Data, HaloPsaMcpConstants.TimesheetEventSummaryFields);
+            var eventsPayload = UnwrapCollectionPayload(result.Data, "timesheetevents", "events", "items", "results", "data", "value");
+            var trimmed = TrimFields(eventsPayload, HaloPsaMcpConstants.TimesheetEventSummaryFields);
             return JsonSerializer.Serialize(trimmed, IndentedJsonOptions);
         } catch (UnauthorizedAccessException) {
             return HaloPsaMcpConstants.AuthRequiredMessage(appConfig);

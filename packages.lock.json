@@ -86,13 +86,13 @@
       },
       "WolverineFx": {
         "type": "Direct",
-        "requested": "[6.13.1, )",
-        "resolved": "6.13.1",
-        "contentHash": "HQvtFTZaoegRXMQk3CYvkaPcbzD/njHOeAFIWf/eoSZ7edQClKaLrjMmOvvt0OUviHTY4+5wXLARmGkRrTKtpA==",
+        "requested": "[6.21.0, )",
+        "resolved": "6.21.0",
+        "contentHash": "S5iYuSyIMnmJJw4/D19ntDanKz81A5V1kDdVT9zqJM8LDIc8kV92JHGCgHqItj32PJlRds0C2IwkZMCur9cUjA==",
         "dependencies": {
-          "JasperFx": "2.13.0",
-          "JasperFx.Events": "2.13.0",
-          "JasperFx.SourceGenerator": "2.13.0",
+          "JasperFx": "2.30.1",
+          "JasperFx.Events": "2.30.1",
+          "JasperFx.SourceGenerator": "2.30.1",
           "NewId": "4.0.1"
         }
       },
@@ -123,8 +123,8 @@
       },
       "JasperFx": {
         "type": "Transitive",
-        "resolved": "2.13.0",
-        "contentHash": "uxG0vg1BER3Sq+p26JyIK0H/3lIZgApcYltajYkWzQqIyOeIkXM/EgTOTI1HEYzTfGsYWpuoiyMHcn8ZfJfhOQ==",
+        "resolved": "2.30.1",
+        "contentHash": "aL+G3ZHFSWy1ZAcVNuky61wohw1CQ4ZRjoSusSGBkCqpCMZIwbqrsrh//fCHG1pE48/Z/gJuD5Cr1zU5a2FDJg==",
         "dependencies": {
           "FastExpressionCompiler": "5.4.1",
           "ImTools": "4.0.0",
@@ -135,10 +135,10 @@
       },
       "JasperFx.Events": {
         "type": "Transitive",
-        "resolved": "2.13.0",
-        "contentHash": "xGqaeCRo1Ie2jaOKvnGC1626+5dVnC81jwW+jEtUFDg0zFxUw9Gh899Xwa8ZTm2rnxv0tntHGdMxLTseLK9c/w==",
+        "resolved": "2.30.1",
+        "contentHash": "xx7Zk10CekPjd8tSxRAUyctyon041EAfi+3Xd+SNQVbUhls94etGCU/gz5tatQSW41MIkeBcwETTN63PLIO7TQ==",
         "dependencies": {
-          "JasperFx": "2.13.0"
+          "JasperFx": "2.30.1"
         }
       },
       "JasperFx.RuntimeCompiler": {
@@ -154,8 +154,8 @@
       },
       "JasperFx.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "2.13.0",
-        "contentHash": "8ZXOEwsQpaXojIHxPEyaSwVlPnXiYuK+gUl2F/y1mXsvQ4aucydKReDoIcspZPxfiQ/UDMgq2jYmNz+pDfjaoA=="
+        "resolved": "2.30.1",
+        "contentHash": "7AJbdIQuGlpJlGYrCrhWWEPgSbAwCGFx+T2YFBMBk+FxUYGfDTUfiAd+C1fqX/NDnMIoHovwH4FLhaHKlxzCMA=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",

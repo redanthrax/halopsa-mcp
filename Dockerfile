@@ -1,6 +1,6 @@
 # Build stage
 # Pin SDK patch to match global.json (10.0.301) so dotnet publish resolves reliably in CI.
-FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS builder
 
 WORKDIR /app
 

@@ -175,6 +175,7 @@ Production checklist:
 - [ ] `networkPolicy.enabled=true` (adjust ingress namespace if not using ingress-nginx)
 - [ ] `AUTH_BASE_URL` / `halopsa.authBaseUrl` matches public connector URL
 - [ ] HaloPSA Login Redirect URL includes `https://<host>/callback`
+- [ ] Public discovery endpoints return `200`: `/.well-known/oauth-*` and `/.well-known/mcp/schema`
 - [ ] Claude connector: open DCR + CORS + redirect allowlist (`values-claude-connector.example.yaml`)
 - [ ] `image.digest` set to `sha256:...` (preferred) or `image.tag` pinned to a SemVer — not `latest`
 - [ ] Image pulled from your private ACR (mirror from Docker Hub)

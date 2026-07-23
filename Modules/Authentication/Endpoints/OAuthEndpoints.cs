@@ -14,6 +14,7 @@ internal static class OAuthEndpoints
         // OAuth 2.1 discovery endpoints
         app.MapProtectedResourceMetadata();
         app.MapAuthorizationServerMetadata();
+        app.MapMcpSchema();
 
         // OAuth 2.1 PKCE flow
         app.MapDynamicClientRegistration();

@@ -76,12 +76,12 @@
       },
       "StackExchange.Redis": {
         "type": "Direct",
-        "requested": "[3.0.17, )",
-        "resolved": "3.0.17",
-        "contentHash": "ItAm9lokZ1mWsQLF3u4Yw4eb/gvkX6Rp9bLAe1KUKgKAjPkALoQwTc6jJLtBZoOv9LT7RwvSIXZZb9FF30QhOg==",
+        "requested": "[3.2.15, )",
+        "resolved": "3.2.15",
+        "contentHash": "QBlh1av9iQSRCRSTyVUXPj3TDaYLCVV3IfVnL7XEsCuwUsxHQ3pCgPmnVFiIBKZSfkmQRn5wPD75/Ix5dZ2Ucw==",
         "dependencies": {
-          "RESPite": "3.0.17",
-          "System.IO.Hashing": "10.0.5"
+          "RESPite": "3.2.15",
+          "System.IO.Hashing": "10.0.12"
         }
       },
       "WolverineFx": {
@@ -307,8 +307,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.17",
-        "contentHash": "68slEMyRTUNLc75DruEDsEohFmFfNwkHLLtwQ46bobF+8Tl+UXMKM1kM87ihhKy6JdAqy1RrvAfvBWeLmcY9Gg=="
+        "resolved": "3.2.15",
+        "contentHash": "YdUqhnCR0RKnkwVGCYqLl0vWDV7nvkcJkX7kM/DsJuUB84+GAtYHziDWxYxMi1IjqEvrfBkD8cqgto0mYTt6ow=="
       },
       "Serilog": {
         "type": "Transitive",
@@ -433,8 +433,8 @@
       },
       "System.IO.Hashing": {
         "type": "Transitive",
-        "resolved": "10.0.5",
-        "contentHash": "8IBJWcCT9+e4Bmevm4T7+fQEiAh133KGiz4oiVTgJckd3Q76OFdR1falgn9lpz7+C4HJvogCDJeAa2QmvbeVtg=="
+        "resolved": "10.0.12",
+        "contentHash": "jDix4bBMYnpZdSPcnY+KDV6ik3SRMzpMKby/bZl/XUwIiflwRNAFZ0oOl61R/pSaveIJ8t1gs2BUlrGsPs/bcg=="
       }
     }
   }

@@ -8,6 +8,11 @@
     <IsTestProject>true</IsTestProject>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- No lock file here: this project's lock would record the transitive graph of the
+         referenced app, so every dependency bump to HaloPsaMcp.csproj invalidates it and
+         fails restore with NU1004. Dependabot only manages "/" and never regenerates it.
+         The shipped app keeps its enforced lock file; test packages are pinned above. -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <ItemGroup>

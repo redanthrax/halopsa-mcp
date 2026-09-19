@@ -18,7 +18,8 @@ jobs:
       - name: Restore
         run: |
           dotnet restore HaloPsaMcp.csproj --locked-mode
-          dotnet restore tests/HaloPsaMcp.Tests/HaloPsaMcp.Tests.csproj --locked-mode
+          # Test project intentionally has no lock file (see its csproj).
+          dotnet restore tests/HaloPsaMcp.Tests/HaloPsaMcp.Tests.csproj
 
       - name: Build
         run: |

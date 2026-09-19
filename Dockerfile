@@ -1,6 +1,7 @@
 # Build stage
-# Pin SDK patch to match global.json (10.0.301) so dotnet publish resolves reliably in CI.
-FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS builder
+# Pin the SDK image so dotnet publish resolves reliably in CI. global.json requests
+# 10.0.301 with rollForward=latestFeature, which this tag satisfies.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS builder
 
 WORKDIR /app
 

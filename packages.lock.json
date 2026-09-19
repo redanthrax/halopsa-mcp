@@ -76,35 +76,35 @@
       },
       "StackExchange.Redis": {
         "type": "Direct",
-        "requested": "[3.0.17, )",
-        "resolved": "3.0.17",
-        "contentHash": "ItAm9lokZ1mWsQLF3u4Yw4eb/gvkX6Rp9bLAe1KUKgKAjPkALoQwTc6jJLtBZoOv9LT7RwvSIXZZb9FF30QhOg==",
+        "requested": "[3.3.0, )",
+        "resolved": "3.3.0",
+        "contentHash": "vSB6W7F85IJ9gYAHPcRsQYLGODptvm8kmp1z2XwmKHYWifHiGGDQHzYkNNUKk3bzODOoOM2fuy7nUeNp1MHIKA==",
         "dependencies": {
-          "RESPite": "3.0.17",
-          "System.IO.Hashing": "10.0.5"
+          "RESPite": "3.3.0",
+          "System.IO.Hashing": "10.0.12"
         }
       },
       "WolverineFx": {
         "type": "Direct",
-        "requested": "[6.38.0, )",
-        "resolved": "6.38.0",
-        "contentHash": "uBDk0rDL+YzSybIxiHB8yAED6YsQ+UGoGmJ73Fj9lGYb/Reeowh0P0gMVHLgd0KOImHfKTIwgV/Wr3Ss6czKFQ==",
+        "requested": "[6.39.1, )",
+        "resolved": "6.39.1",
+        "contentHash": "8fH1riv/f0xscobUrxnkiFgDFgkqI18ixhHAtoHklJNczCvxCHFpag3snHEzu2v6ldRfpLQG1YUERWWkCEJazw==",
         "dependencies": {
           "Cronos": "0.11.0",
-          "JasperFx": "2.69.3",
-          "JasperFx.Events": "2.69.3",
-          "JasperFx.SourceGenerator": "2.69.3",
+          "JasperFx": "2.73.2",
+          "JasperFx.Events": "2.73.2",
+          "JasperFx.SourceGenerator": "2.73.2",
           "NewId": "4.0.1"
         }
       },
       "WolverineFx.RuntimeCompilation": {
         "type": "Direct",
-        "requested": "[6.38.0, )",
-        "resolved": "6.38.0",
-        "contentHash": "ht1dNMLRoyYv8QCzWKW9n3ZN5IdR/Dol/Ypx+BkGzsXlq8sIq1kJdyI3zZvTdPhMZYd01x9TuAnr+3021AGIfA==",
+        "requested": "[6.39.1, )",
+        "resolved": "6.39.1",
+        "contentHash": "zUkZqzVBBbvOERyUpogPV/Ow4bWFgNi7eKknxKE1/6asJBCjIF0wdvfAPgceJqGjYuVtEhmHWTH5HwvBO6eIRQ==",
         "dependencies": {
           "JasperFx.RuntimeCompiler": "5.0.0",
-          "WolverineFx": "6.38.0"
+          "WolverineFx": "6.39.1"
         }
       },
       "Cronos": {
@@ -129,8 +129,8 @@
       },
       "JasperFx": {
         "type": "Transitive",
-        "resolved": "2.69.3",
-        "contentHash": "eXqrcXRMlReT3vRoXfJZLbGkgI9PsFN5G8y44BCsuVef3HTPo5yKjyXWltW212BGi8QDEXzOUEDCPdHoNSPm9g==",
+        "resolved": "2.73.2",
+        "contentHash": "K/F0fvgtFlBkxV6Tf+hkC6OiniG35tuCyRUZVH9H7A+h173hEdbVgz7ppVu6akv5IQ+mfKY0Gxe9ZweliDToIw==",
         "dependencies": {
           "FastExpressionCompiler": "5.4.1",
           "ImTools": "4.0.0",
@@ -141,10 +141,10 @@
       },
       "JasperFx.Events": {
         "type": "Transitive",
-        "resolved": "2.69.3",
-        "contentHash": "3hvSEUNGFE7g+4UUHrRYo9HgnKSlscfP02boqS4vXjI12yCT7dHcz3qRuyTh1Jh+AmqlCuX+MBgfCDU9U9AzzA==",
+        "resolved": "2.73.2",
+        "contentHash": "B+lEwW9yMcDkgV8IzDCDM+W8uWiiXQgBNuLWf6b6WlOYb09PYN1WR2D/g9GcpihFYYnkFXj//ywc00C/9FBCiw==",
         "dependencies": {
-          "JasperFx": "2.69.3"
+          "JasperFx": "2.73.2"
         }
       },
       "JasperFx.RuntimeCompiler": {
@@ -160,8 +160,8 @@
       },
       "JasperFx.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "2.69.3",
-        "contentHash": "HnNb+bMccuHXHGE8HGxJLhc/o3ysXhFlbOxV8771xzz8o6oJkc0Sy/IWecyxAdkPykZsKUCaGHIex3IAr1ZurQ=="
+        "resolved": "2.73.2",
+        "contentHash": "nqzo5cklKgxm+DDHKUWlCq4Dhpvrz2CM7T6KJjZAPAeJTUK/0lnxzkdRMPYIX1QOs8fwq+rwjAXLXecaP7lntw=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -313,8 +313,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.17",
-        "contentHash": "68slEMyRTUNLc75DruEDsEohFmFfNwkHLLtwQ46bobF+8Tl+UXMKM1kM87ihhKy6JdAqy1RrvAfvBWeLmcY9Gg=="
+        "resolved": "3.3.0",
+        "contentHash": "pzHmX5/ffYxDs0liGPwbAQ9c9xRmbhtJ6XnZOpktHAs9x7MTqQByEXiySXzT3xPZ/l8U95OfVUYvm/BOBK6f6w=="
       },
       "Serilog": {
         "type": "Transitive",
@@ -439,8 +439,8 @@
       },
       "System.IO.Hashing": {
         "type": "Transitive",
-        "resolved": "10.0.5",
-        "contentHash": "8IBJWcCT9+e4Bmevm4T7+fQEiAh133KGiz4oiVTgJckd3Q76OFdR1falgn9lpz7+C4HJvogCDJeAa2QmvbeVtg=="
+        "resolved": "10.0.12",
+        "contentHash": "jDix4bBMYnpZdSPcnY+KDV6ik3SRMzpMKby/bZl/XUwIiflwRNAFZ0oOl61R/pSaveIJ8t1gs2BUlrGsPs/bcg=="
       }
     }
   }

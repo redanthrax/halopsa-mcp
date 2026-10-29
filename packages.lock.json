@@ -13,9 +13,9 @@
       },
       "Microsoft.AspNetCore.DataProtection.Extensions": {
         "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "4mWdXpTgnv98Y3BA3VULdWtU4GOxRe2a8AFaX6reITlH4kXJz0xsWS5htEUVB4RuklHhh97CEdbieTiWrDiB+A=="
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "NOCPh4gvCmw2rB/Q0ljDwNgCtmeShmhR10RLXQw+VQ7qAkTHEbFw5k9aVKhD615zUGEYitf6Uc7FL5q2CgAYyw=="
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Direct",

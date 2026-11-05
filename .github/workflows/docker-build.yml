@@ -6,17 +6,27 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Deny by default; the job below requests only what it uses.
+permissions: {}
+
+# One release build per ref at a time. Never cancel a release mid-push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
+      contents: read      # checkout
+      id-token: write     # OIDC for keyless cosign signing and Sigstore attestation certs
+      attestations: write # persist build provenance via the GitHub attestations API
+      # No packages: write: images go to Docker Hub with DOCKERHUB_* secrets, not GHCR.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -37,6 +47,9 @@ jobs:
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          # trivy-action v0.36.0 defaults to Trivy v0.70.0 (CVE-2026-55092, CVE-2026-54448,
+          # CVE-2026-63328). Pin a patched scanner explicitly.
+          version: v0.76.1
           image-ref: halopsa-mcp:release-scan
           severity: CRITICAL,HIGH
           exit-code: '1'
@@ -70,7 +83,7 @@ jobs:
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Login to Docker Hub
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -99,7 +112,7 @@ jobs:
           sbom: true
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       - name: Sign image (keyless)
         env:

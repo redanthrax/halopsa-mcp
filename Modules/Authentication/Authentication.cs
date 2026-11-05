@@ -15,7 +15,7 @@ internal class AuthenticationModuleRegistrar : IModuleRegistrar {
     public int Priority => 2;
 
     public void Register(IServiceCollection services, IConfiguration configuration) {
-        services.AddRedisConnectionIfNeeded();
+        services.AddRedisConnectionIfNeeded(configuration);
 
         // DataProtection (encrypts tokens.json + clients.json at rest).
         // Keys persisted to ./data/dp-keys so they survive restarts.

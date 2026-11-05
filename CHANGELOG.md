@@ -11,6 +11,7 @@ All notable changes to this project are documented here. Version numbers match [
 
 ### Fixed
 - Alpine OpenSSL CVE-2026-45447 via `apk upgrade` in runtime image
+- `/mcp` returned 500 on the default file token-store backend: the Redis connection is now registered only when `HALOPSA_TOKEN_STORE_BACKEND=redis`
 
 ## [1.0.23] - 2026-06-11
 

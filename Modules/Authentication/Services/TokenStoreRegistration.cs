@@ -1,5 +1,6 @@
 using HaloPsaMcp.Modules.Common.Models;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
 
@@ -38,13 +39,20 @@ internal static class TokenStoreRegistration {
             sp.GetRequiredService<ILogger<FileTokenStore>>());
     }
 
-    internal static void AddRedisConnectionIfNeeded(this IServiceCollection services) {
+    /// <summary>
+    /// Registers <see cref="IConnectionMultiplexer"/> only for the redis backend.
+    /// Optional consumers (e.g. <c>HaloPsaTokenRefresher</c>) resolve it with
+    /// <c>GetService</c>, so on the file backend it must be absent rather than
+    /// registered with a throwing factory — <c>GetService</c> still invokes the factory.
+    /// </summary>
+    internal static void AddRedisConnectionIfNeeded(this IServiceCollection services, IConfiguration configuration) {
+        var backend = configuration["HALOPSA_TOKEN_STORE_BACKEND"] ?? "file";
+        if (!string.Equals(backend, "redis", StringComparison.OrdinalIgnoreCase)) {
+            return;
+        }
+
         services.AddSingleton<IConnectionMultiplexer>(sp => {
             var appConfig = sp.GetRequiredService<AppConfig>();
-            if (!string.Equals(appConfig.HaloPsa.TokenStoreBackend, "redis", StringComparison.OrdinalIgnoreCase)) {
-                throw new InvalidOperationException(
-                    "IConnectionMultiplexer is only available when HALOPSA_TOKEN_STORE_BACKEND=redis.");
-            }
             if (string.IsNullOrWhiteSpace(appConfig.HaloPsa.RedisConnection)) {
                 throw new InvalidOperationException(
                     "HALOPSA_TOKEN_STORE_BACKEND=redis requires HALOPSA_REDIS_CONNECTION.");

@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # DOCKERHUB_* secrets live in this environment, which only v* tags may deploy to,
+    # so branch and PR workflows can never read the registry credentials.
+    environment: release
     permissions:
       contents: read      # checkout
       id-token: write     # OIDC for keyless cosign signing and Sigstore attestation certs

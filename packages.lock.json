@@ -86,14 +86,14 @@
       },
       "WolverineFx": {
         "type": "Direct",
-        "requested": "[6.61.0, )",
-        "resolved": "6.61.0",
-        "contentHash": "CToGgaShDvB77YKPsZ4xQ4pJoMJHU1edJQdtb0rNP5B4ufR1C8csSEOXuajg2cnpEIz16vW+N7n98wfwKy/VDw==",
+        "requested": "[6.64.0, )",
+        "resolved": "6.64.0",
+        "contentHash": "hoGE3ZTGontyepxYQ96OUklj81x3a5dg9k32rpgCa1yNHWdsfJCtr9Lx/wZidUv+lfzm+LSLoVHsXILYeq+e2A==",
         "dependencies": {
           "Cronos": "0.11.0",
-          "JasperFx": "2.99.0",
-          "JasperFx.Events": "2.99.0",
-          "JasperFx.SourceGenerator": "2.99.0",
+          "JasperFx": "2.102.0",
+          "JasperFx.Events": "2.102.0",
+          "JasperFx.SourceGenerator": "2.102.0",
           "NewId": "4.0.1"
         }
       },
@@ -129,8 +129,8 @@
       },
       "JasperFx": {
         "type": "Transitive",
-        "resolved": "2.99.0",
-        "contentHash": "srYuwWBhZtPFTbyeLGHcQY7EaYre0JjoYKcUV5AzJ7UBmBIm5HTr1Oh349xXSaFNqvq4GNFI8iUlUwQi9E6Whg==",
+        "resolved": "2.102.0",
+        "contentHash": "C0d8tXlR1avOvaBpYWri0VzJtpgfmVkK8opXAu2A7fVxsxPVof1xIQj+s0qAOSN8uav7E18iMA6Xhfamh267jg==",
         "dependencies": {
           "FastExpressionCompiler": "5.4.1",
           "ImTools": "4.0.0",
@@ -142,10 +142,10 @@
       },
       "JasperFx.Events": {
         "type": "Transitive",
-        "resolved": "2.99.0",
-        "contentHash": "Xpsu+MgcCJANFfncuARLSGGx5/PtCkCDtEoC4ZZCSnTsmfFJ9qjIHtgS7j5BuuFYNfJKnu13mGqf3qKrIICxBA==",
+        "resolved": "2.102.0",
+        "contentHash": "xDAgHYqNwiX4+S6gnevMNhLjI03NRUb2gGqIpAHTd0CXcprcqGb4nivvExHgPoAEh5H0HFNJvn6fVjNGrhhSZg==",
         "dependencies": {
-          "JasperFx": "2.99.0"
+          "JasperFx": "2.102.0"
         }
       },
       "JasperFx.RuntimeCompiler": {
@@ -161,8 +161,8 @@
       },
       "JasperFx.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "2.99.0",
-        "contentHash": "3awwUYykJl7BqlV88EShokDU3gDZlQ7KVmAoiokdaa/eVGeTQ2/69w8RxP9qqGdzxu2jwzGKgTpny05+n0Padg=="
+        "resolved": "2.102.0",
+        "contentHash": "gvaAyjd2cDZDfSMtEHwZhGQnhJeoQsVNLTP6NkB5tJ/zcB70jOzKFtC0OJI4pgK7W38vdHQuoCJQl1+nCPgghA=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
